@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { HISTORY_CONTEXT_MARKER } from "../auto-reply/reply/history.js";
 import { CURRENT_MESSAGE_MARKER } from "../auto-reply/reply/mentions.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
+import { createTenant } from "../tenants/index.js";
 import { agentCommand, getFreePort, installGatewayTestHooks } from "./test-helpers.js";
 
 installGatewayTestHooks({ scope: "suite" });
@@ -342,6 +344,49 @@ describe("OpenAI-compatible HTTP API (e2e)", () => {
     } finally {
       // shared server
     }
+  });
+
+  it("scopes tenant-token auth to tenant-prefixed session keys", async () => {
+    const tenantId = `tenant-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    const { token } = createTenant(tenantId);
+
+    agentCommand.mockReset();
+    agentCommand.mockResolvedValueOnce({ payloads: [{ text: "tenant-ok" }] } as never);
+    const res = await fetch(`http://127.0.0.1:${enabledPort}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+        "x-openclaw-session-key": "agent:beta:openai:custom",
+      },
+      body: JSON.stringify({
+        model: "openclaw:beta",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const [opts] = agentCommand.mock.calls[0] ?? [];
+    expect((opts as { sessionKey?: string } | undefined)?.sessionKey).toBe(
+      `tenant:${tenantId}:agent:beta:openai:custom`,
+    );
+    await res.text();
+
+    const mismatched = await fetch(`http://127.0.0.1:${enabledPort}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+        "x-openclaw-session-key": "tenant:other:agent:beta:openai:custom",
+      },
+      body: JSON.stringify({
+        model: "openclaw:beta",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+    expect(mismatched.status).toBe(403);
+    const body = (await mismatched.json()) as { error?: { type?: string } };
+    expect(body.error?.type).toBe("forbidden");
   });
 
   it("streams SSE chunks when stream=true", async () => {

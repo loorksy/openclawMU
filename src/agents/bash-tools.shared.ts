@@ -9,11 +9,27 @@ import { killProcessTree } from "./shell-utils.js";
 
 const CHUNK_LIMIT = 8 * 1024;
 
+export type BashSandboxBackend = "docker" | "bwrap";
+
 export type BashSandboxConfig = {
-  containerName: string;
+  /** Sandbox backend: docker or bwrap. Default: auto-detected. */
+  backend?: BashSandboxBackend;
+  /** Docker container name (required for docker backend). */
+  containerName?: string;
+  /** Host workspace directory that gets mounted. */
   workspaceDir: string;
+  /** Workdir inside the container/sandbox. */
   containerWorkdir: string;
+  /** Environment variables to set in the sandbox. */
   env?: Record<string, string>;
+  /** Tenant ID for tenant-scoped isolation. */
+  tenantId?: string;
+  /** Tenant state directory (for bwrap). */
+  tenantStateDir?: string;
+  /** Enable network isolation (bwrap only, default: true). */
+  networkIsolation?: boolean;
+  /** Read-only workspace (bwrap only, default: false). */
+  readOnlyWorkspace?: boolean;
 };
 
 export function buildSandboxEnv(params: {
@@ -46,6 +62,86 @@ export function coerceEnv(env?: NodeJS.ProcessEnv | Record<string, string>) {
     }
   }
   return record;
+}
+
+export function buildBwrapExecArgs(params: {
+  command: string;
+  workspaceDir: string;
+  containerWorkdir: string;
+  env: Record<string, string>;
+  tenantStateDir?: string;
+  networkIsolation?: boolean;
+  readOnlyWorkspace?: boolean;
+}): string[] {
+  const args: string[] = [];
+
+  // User namespace (run as uid/gid 1000 inside)
+  args.push("--unshare-user", "--uid", "1000", "--gid", "1000");
+
+  // Other namespaces
+  args.push("--unshare-pid", "--unshare-ipc", "--unshare-cgroup");
+
+  // Network isolation (default: enabled)
+  if (params.networkIsolation !== false) {
+    args.push("--unshare-net");
+  }
+
+  // Read-only root binds
+  args.push("--ro-bind", "/usr", "/usr");
+  args.push("--ro-bind", "/bin", "/bin");
+  // /lib and /lib64 may not exist on all systems
+  try {
+    args.push("--ro-bind", "/lib", "/lib");
+  } catch {
+    // ignore if /lib doesn't exist
+  }
+  try {
+    args.push("--ro-bind", "/lib64", "/lib64");
+  } catch {
+    // ignore if /lib64 doesn't exist
+  }
+  // Common additional paths
+  args.push("--ro-bind-try", "/etc/resolv.conf", "/etc/resolv.conf");
+  args.push("--ro-bind-try", "/etc/hosts", "/etc/hosts");
+  args.push("--ro-bind-try", "/etc/passwd", "/etc/passwd");
+  args.push("--ro-bind-try", "/etc/group", "/etc/group");
+  args.push("--ro-bind-try", "/etc/ssl", "/etc/ssl");
+  args.push("--ro-bind-try", "/etc/ca-certificates", "/etc/ca-certificates");
+
+  // Essentials
+  args.push("--proc", "/proc");
+  args.push("--dev", "/dev");
+  args.push("--tmpfs", "/tmp");
+  args.push("--tmpfs", "/var/tmp");
+
+  // Workspace mount
+  if (params.readOnlyWorkspace) {
+    args.push("--ro-bind", params.workspaceDir, params.containerWorkdir);
+  } else {
+    args.push("--bind", params.workspaceDir, params.containerWorkdir);
+  }
+
+  // Tenant state directory (if provided)
+  if (params.tenantStateDir) {
+    args.push("--bind", params.tenantStateDir, "/openclaw-state");
+  }
+
+  // Environment variables
+  for (const [key, value] of Object.entries(params.env)) {
+    args.push("--setenv", key, value);
+  }
+
+  // Set working directory
+  args.push("--chdir", params.containerWorkdir);
+
+  // Die with parent process
+  args.push("--die-with-parent");
+
+  // New session for better isolation
+  args.push("--new-session");
+
+  // The command will be appended after "--"
+  return args;
 }
 
 export function buildDockerExecArgs(params: {

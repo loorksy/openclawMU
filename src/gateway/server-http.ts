@@ -40,6 +40,7 @@ import {
 } from "./hooks.js";
 import { sendUnauthorized } from "./http-common.js";
 import { getBearerToken, getHeader } from "./http-utils.js";
+import { handleInternalHttpRequest } from "./internal-http.js";
 import { resolveGatewayClientIp } from "./net.js";
 import { handleOpenAiHttpRequest } from "./openai-http.js";
 import { handleOpenResponsesHttpRequest } from "./openresponses-http.js";
@@ -80,9 +81,13 @@ function isCanvasPath(pathname: string): boolean {
   );
 }
 
-function hasAuthorizedWsClientForIp(clients: Set<GatewayWsClient>, clientIp: string): boolean {
+export function hasAuthorizedWsClientForIp(
+  clients: Set<GatewayWsClient>,
+  clientIp: string,
+): boolean {
   for (const client of clients) {
-    if (client.clientIp && client.clientIp === clientIp) {
+    // OPENCLAWMU ADDITION: tenant-scoped clients must not grant canvas access.
+    if (client.clientIp && client.clientIp === clientIp && !client.tenantId) {
       return true;
     }
   }
@@ -108,7 +113,8 @@ async function authorizeCanvasRequest(params: {
       req,
       trustedProxies,
     });
-    if (authResult.ok) {
+    // OPENCLAWMU ADDITION: tenant tokens are excluded from canvas bearer auth.
+    if (authResult.ok && authResult.method !== "tenant-token") {
       return true;
     }
   }
@@ -317,6 +323,12 @@ export function createGatewayHttpServer(opts: {
     try {
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
+
+      // Handle internal API requests (control plane integration)
+      if (await handleInternalHttpRequest(req, res)) {
+        return;
+      }
+
       if (await handleHooksRequest(req, res)) {
         return;
       }

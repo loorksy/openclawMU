@@ -508,6 +508,8 @@ export const OpenClawSchema = z
           })
           .strict()
           .optional(),
+        controlPlaneToken: z.string().optional(),
+        multiTenant: z.boolean().optional(),
       })
       .strict()
       .optional(),

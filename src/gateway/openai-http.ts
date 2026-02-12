@@ -14,7 +14,12 @@ import {
   setSseHeaders,
   writeDone,
 } from "./http-common.js";
-import { getBearerToken, resolveAgentIdForRequest, resolveSessionKey } from "./http-utils.js";
+import {
+  getBearerToken,
+  resolveAgentIdForRequest,
+  resolveSessionKey,
+  scopeSessionKeyToTenant,
+} from "./http-utils.js";
 
 type OpenAiHttpOptions = {
   auth: ResolvedGatewayAuth;
@@ -206,7 +211,18 @@ export async function handleOpenAiHttpRequest(
   const user = typeof payload.user === "string" ? payload.user : undefined;
 
   const agentId = resolveAgentIdForRequest({ req, model });
-  const sessionKey = resolveOpenAiSessionKey({ req, agentId, user });
+  // OPENCLAWMU ADDITION: tenant tokens must stay in tenant-prefixed session buckets.
+  const tenantSession = scopeSessionKeyToTenant({
+    sessionKey: resolveOpenAiSessionKey({ req, agentId, user }),
+    tenantId: authResult.method === "tenant-token" ? authResult.tenantId : undefined,
+  });
+  if (!tenantSession.ok) {
+    sendJson(res, 403, {
+      error: { message: tenantSession.error, type: "forbidden" },
+    });
+    return true;
+  }
+  const sessionKey = tenantSession.sessionKey;
   const prompt = buildAgentPrompt(payload.messages);
   if (!prompt.message) {
     sendJson(res, 400, {

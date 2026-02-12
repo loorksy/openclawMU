@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createTenant } from "../tenants/index.js";
 import { createTestRegistry } from "../test-utils/channel-plugins.js";
 import { resetTestPluginRegistry, setTestPluginRegistry, testState } from "./test-helpers.mocks.js";
 import { installGatewayTestHooks, getFreePort, startGatewayServer } from "./test-helpers.server.js";
@@ -232,6 +234,31 @@ describe("POST /tools/invoke", () => {
     });
 
     expect(res.status).toBe(401);
+
+    await server.close();
+  });
+
+  it("rejects tenant-token auth for tools invoke", async () => {
+    testState.agentsConfig = {
+      list: [{ id: "main" }],
+      // oxlint-disable-next-line typescript/no-explicit-any
+    } as any;
+
+    const tenantId = `tenant-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    const { token } = createTenant(tenantId);
+
+    const port = await getFreePort();
+    const server = await startGatewayServer(port, { bind: "loopback" });
+
+    const res = await fetch(`http://127.0.0.1:${port}/tools/invoke`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ tool: "agents_list", action: "json", args: {}, sessionKey: "main" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { type?: string } };
+    expect(body.error?.type).toBe("forbidden");
 
     await server.close();
   });

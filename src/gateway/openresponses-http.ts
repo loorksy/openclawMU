@@ -43,7 +43,12 @@ import {
   setSseHeaders,
   writeDone,
 } from "./http-common.js";
-import { getBearerToken, resolveAgentIdForRequest, resolveSessionKey } from "./http-utils.js";
+import {
+  getBearerToken,
+  resolveAgentIdForRequest,
+  resolveSessionKey,
+  scopeSessionKeyToTenant,
+} from "./http-utils.js";
 import {
   CreateResponseBodySchema,
   type ContentPart,
@@ -474,7 +479,18 @@ export async function handleOpenResponsesHttpRequest(
     return true;
   }
   const agentId = resolveAgentIdForRequest({ req, model });
-  const sessionKey = resolveOpenResponsesSessionKey({ req, agentId, user });
+  // OPENCLAWMU ADDITION: tenant tokens must stay in tenant-prefixed session buckets.
+  const tenantSession = scopeSessionKeyToTenant({
+    sessionKey: resolveOpenResponsesSessionKey({ req, agentId, user }),
+    tenantId: authResult.method === "tenant-token" ? authResult.tenantId : undefined,
+  });
+  if (!tenantSession.ok) {
+    sendJson(res, 403, {
+      error: { message: tenantSession.error, type: "forbidden" },
+    });
+    return true;
+  }
+  const sessionKey = tenantSession.sessionKey;
 
   // Build prompt from input
   const prompt = buildAgentPrompt(payload.input);

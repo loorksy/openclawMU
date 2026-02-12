@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import type { CanvasHostHandler } from "../canvas-host/server.js";
 import type { ResolvedGatewayAuth } from "./auth.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
 import { A2UI_PATH, CANVAS_HOST_PATH, CANVAS_WS_PATH } from "../canvas-host/a2ui.js";
+import { createTenant } from "../tenants/index.js";
 import { attachGatewayUpgradeHandler, createGatewayHttpServer } from "./server-http.js";
 
 async function withTempConfig(params: { cfg: unknown; run: () => Promise<void> }): Promise<void> {
@@ -163,6 +165,35 @@ describe("gateway canvas host auth", () => {
           await expectWsRejected(`ws://127.0.0.1:${listener.port}${CANVAS_WS_PATH}`, {
             "x-forwarded-for": ipA,
           });
+
+          const tenantId = `tenant-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+          const { token: tenantToken } = createTenant(tenantId);
+          const tenantTokenCanvas = await fetch(
+            `http://127.0.0.1:${listener.port}${CANVAS_HOST_PATH}/`,
+            {
+              headers: {
+                "x-forwarded-for": ipA,
+                authorization: `Bearer ${tenantToken}`,
+              },
+            },
+          );
+          expect(tenantTokenCanvas.status).toBe(401);
+
+          clients.add({
+            socket: {} as unknown as WebSocket,
+            connect: {} as never,
+            connId: "tenant-ws",
+            clientIp: ipA,
+            tenantId,
+          });
+          const tenantIpStillBlocked = await fetch(
+            `http://127.0.0.1:${listener.port}${CANVAS_HOST_PATH}/`,
+            {
+              headers: { "x-forwarded-for": ipA },
+            },
+          );
+          expect(tenantIpStillBlocked.status).toBe(401);
+          clients.clear();
 
           clients.add({
             socket: {} as unknown as WebSocket,

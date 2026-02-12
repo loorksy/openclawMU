@@ -67,8 +67,13 @@ type ControlUiAvatarMeta = {
 };
 
 function applyControlUiSecurityHeaders(res: ServerResponse) {
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+  // Allow framing from control plane for multi-tenant UI
+  // In production, this should be restricted to specific origins
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-ancestors 'self' http://localhost:* https://localhost:*",
+  );
   res.setHeader("X-Content-Type-Options", "nosniff");
 }
 

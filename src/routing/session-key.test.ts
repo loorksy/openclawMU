@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifySessionKeyShape } from "./session-key.js";
+import { classifySessionKeyShape, resolveAgentIdFromSessionKey } from "./session-key.js";
 
 describe("classifySessionKeyShape", () => {
   it("classifies empty keys as missing", () => {
@@ -10,6 +10,7 @@ describe("classifySessionKeyShape", () => {
   it("classifies valid agent keys", () => {
     expect(classifySessionKeyShape("agent:main:main")).toBe("agent");
     expect(classifySessionKeyShape("agent:research:subagent:worker")).toBe("agent");
+    expect(classifySessionKeyShape("tenant:acme:agent:research:main")).toBe("agent");
   });
 
   it("classifies malformed agent keys", () => {
@@ -21,5 +22,11 @@ describe("classifySessionKeyShape", () => {
     expect(classifySessionKeyShape("main")).toBe("legacy_or_alias");
     expect(classifySessionKeyShape("custom-main")).toBe("legacy_or_alias");
     expect(classifySessionKeyShape("subagent:worker")).toBe("legacy_or_alias");
+  });
+});
+
+describe("resolveAgentIdFromSessionKey", () => {
+  it("resolves agent id from tenant-prefixed keys", () => {
+    expect(resolveAgentIdFromSessionKey("tenant:acme:agent:research:main")).toBe("research");
   });
 });

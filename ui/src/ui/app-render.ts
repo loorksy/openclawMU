@@ -76,6 +76,7 @@ import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
+import { renderTerminalView } from "./views/terminal.ts";
 import { renderUsage } from "./views/usage.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
@@ -602,6 +603,46 @@ export function renderApp(state: AppViewState) {
                 onRun: (job) => runCronJob(state, job),
                 onRemove: (job) => removeCronJob(state, job),
                 onLoadRuns: (jobId) => loadCronRuns(state, jobId),
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "terminal"
+            ? renderTerminalView({
+                // OPENCLAWMU ADDITION: multi-instance terminal tab wiring.
+                state: {
+                  instances: state.terminalInstances,
+                  activeInstanceId: state.terminalActiveId,
+                  gatewayConnected: state.connected,
+                  gatewayUrl: state.settings.gatewayUrl,
+                  token: state.settings.token,
+                },
+                onAddTerminal: () => {
+                  const id = crypto.randomUUID();
+                  const instances = state.terminalInstances;
+                  state.terminalInstances = [
+                    ...instances,
+                    {
+                      id,
+                      terminalId: null,
+                      status: "disconnected",
+                      pid: null,
+                      title: `Terminal ${instances.length + 1}`,
+                    },
+                  ];
+                  state.terminalActiveId = id;
+                },
+                onCloseTerminal: (instanceId) => {
+                  const instances = state.terminalInstances;
+                  state.terminalInstances = instances.filter((i) => i.id !== instanceId);
+                  if (state.terminalActiveId === instanceId) {
+                    state.terminalActiveId = state.terminalInstances[0]?.id ?? null;
+                  }
+                },
+                onSelectTerminal: (instanceId) => {
+                  state.terminalActiveId = instanceId;
+                },
               })
             : nothing
         }

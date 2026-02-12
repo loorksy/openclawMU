@@ -126,6 +126,16 @@ export async function handleToolsInvokeHttpRequest(
     sendUnauthorized(res);
     return true;
   }
+  // OPENCLAWMU ADDITION: keep tools/invoke admin/operator-only for now.
+  if (authResult.method === "tenant-token") {
+    sendJson(res, 403, {
+      error: {
+        message: "Tenant tokens are not supported for this HTTP endpoint.",
+        type: "forbidden",
+      },
+    });
+    return true;
+  }
 
   const bodyUnknown = await readJsonBodyOrError(req, res, opts.maxBodyBytes ?? DEFAULT_BODY_BYTES);
   if (bodyUnknown === undefined) {

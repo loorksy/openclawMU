@@ -40,6 +40,7 @@ import {
   tail,
 } from "./bash-process-registry.js";
 import {
+  buildBwrapExecArgs,
   buildDockerExecArgs,
   buildSandboxEnv,
   chunkString,
@@ -184,7 +185,7 @@ export type ExecToolDefaults = {
   cwd?: string;
 };
 
-export type { BashSandboxConfig } from "./bash-tools.shared.js";
+export type { BashSandboxBackend, BashSandboxConfig } from "./bash-tools.shared.js";
 
 export type ExecElevatedDefaults = {
   enabled: boolean;
@@ -441,39 +442,83 @@ async function runExecProcess(opts: {
   let stdin: SessionStdin | undefined;
 
   if (opts.sandbox) {
-    const { child: spawned } = await spawnWithFallback({
-      argv: [
-        "docker",
-        ...buildDockerExecArgs({
-          containerName: opts.sandbox.containerName,
-          command: opts.command,
-          workdir: opts.containerWorkdir ?? opts.sandbox.containerWorkdir,
-          env: opts.env,
-          tty: opts.usePty,
-        }),
-      ],
-      options: {
-        cwd: opts.workdir,
-        env: process.env,
-        detached: process.platform !== "win32",
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      },
-      fallbacks: [
-        {
-          label: "no-detach",
-          options: { detached: false },
+    const sandboxBackend = opts.sandbox.backend ?? "docker";
+
+    if (sandboxBackend === "bwrap") {
+      // Bubblewrap sandbox execution
+      const bwrapArgs = buildBwrapExecArgs({
+        command: opts.command,
+        workspaceDir: opts.sandbox.workspaceDir,
+        containerWorkdir: opts.containerWorkdir ?? opts.sandbox.containerWorkdir,
+        env: opts.env,
+        tenantStateDir: opts.sandbox.tenantStateDir,
+        networkIsolation: opts.sandbox.networkIsolation,
+        readOnlyWorkspace: opts.sandbox.readOnlyWorkspace,
+      });
+
+      const { child: spawned } = await spawnWithFallback({
+        argv: ["bwrap", ...bwrapArgs, "--", "sh", "-c", opts.command],
+        options: {
+          cwd: opts.workdir,
+          env: process.env,
+          detached: process.platform !== "win32",
+          stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
         },
-      ],
-      onFallback: (err, fallback) => {
-        const errText = formatSpawnError(err);
-        const warning = `Warning: spawn failed (${errText}); retrying with ${fallback.label}.`;
-        logWarn(`exec: spawn failed (${errText}); retrying with ${fallback.label}.`);
-        opts.warnings.push(warning);
-      },
-    });
-    child = spawned as ChildProcessWithoutNullStreams;
-    stdin = child.stdin;
+        fallbacks: [
+          {
+            label: "no-detach",
+            options: { detached: false },
+          },
+        ],
+        onFallback: (err, fallback) => {
+          const errText = formatSpawnError(err);
+          const warning = `Warning: bwrap spawn failed (${errText}); retrying with ${fallback.label}.`;
+          logWarn(`exec: bwrap spawn failed (${errText}); retrying with ${fallback.label}.`);
+          opts.warnings.push(warning);
+        },
+      });
+      child = spawned as ChildProcessWithoutNullStreams;
+      stdin = child.stdin;
+    } else {
+      // Docker sandbox execution
+      if (!opts.sandbox.containerName) {
+        throw new Error("Docker sandbox requires containerName");
+      }
+      const { child: spawned } = await spawnWithFallback({
+        argv: [
+          "docker",
+          ...buildDockerExecArgs({
+            containerName: opts.sandbox.containerName,
+            command: opts.command,
+            workdir: opts.containerWorkdir ?? opts.sandbox.containerWorkdir,
+            env: opts.env,
+            tty: opts.usePty,
+          }),
+        ],
+        options: {
+          cwd: opts.workdir,
+          env: process.env,
+          detached: process.platform !== "win32",
+          stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
+        },
+        fallbacks: [
+          {
+            label: "no-detach",
+            options: { detached: false },
+          },
+        ],
+        onFallback: (err, fallback) => {
+          const errText = formatSpawnError(err);
+          const warning = `Warning: spawn failed (${errText}); retrying with ${fallback.label}.`;
+          logWarn(`exec: spawn failed (${errText}); retrying with ${fallback.label}.`);
+          opts.warnings.push(warning);
+        },
+      });
+      child = spawned as ChildProcessWithoutNullStreams;
+      stdin = child.stdin;
+    }
   } else if (opts.usePty) {
     const { shell, args: shellArgs } = getShellConfig();
     try {

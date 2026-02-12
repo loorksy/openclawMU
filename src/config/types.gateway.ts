@@ -245,4 +245,14 @@ export type GatewayConfig = {
    * `x-real-ip`) to determine the client IP for local pairing and HTTP checks.
    */
   trustedProxies?: string[];
+  /**
+   * Token for control plane HTTP API authentication.
+   * Used by external control planes to manage tenants and backups.
+   * Passed via X-Control-Plane-Token header.
+   */
+  controlPlaneToken?: string;
+  /**
+   * Enable multi-tenant mode for tenant isolation.
+   */
+  multiTenant?: boolean;
 };

@@ -57,6 +57,9 @@ import {
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 
 const DEVICE_SIGNATURE_SKEW_MS = 10 * 60 * 1000;
+// OPENCLAWMU ADDITION: tenant tokens are constrained to operator read/write scopes.
+const TENANT_DEFAULT_SCOPES = ["operator.read", "operator.write"] as const;
+const TENANT_ALLOWED_SCOPES = new Set<string>(TENANT_DEFAULT_SCOPES);
 
 function resolveHostName(hostHeader?: string): string {
   const host = (hostHeader ?? "").trim().toLowerCase();
@@ -337,7 +340,7 @@ export function attachGatewayWsMessageHandler(params: {
         }
 
         const roleRaw = connectParams.role ?? "operator";
-        const role = roleRaw === "operator" || roleRaw === "node" ? roleRaw : null;
+        let role = roleRaw === "operator" || roleRaw === "node" ? roleRaw : null;
         if (!role) {
           setHandshakeState("failed");
           setCloseCause("invalid-role", {
@@ -357,7 +360,7 @@ export function attachGatewayWsMessageHandler(params: {
           return;
         }
         const requestedScopes = Array.isArray(connectParams.scopes) ? connectParams.scopes : [];
-        const scopes =
+        let scopes =
           requestedScopes.length > 0
             ? requestedScopes
             : role === "operator"
@@ -416,6 +419,35 @@ export function attachGatewayWsMessageHandler(params: {
           req: upgradeReq,
           trustedProxies,
         });
+        // OPENCLAWMU ADDITION: enforce tenant-token role/scopes at handshake time.
+        if (authResult.ok && authResult.method === "tenant-token") {
+          if (role !== "operator") {
+            setHandshakeState("failed");
+            setCloseCause("invalid-role", {
+              role,
+              reason: "tenant-token-requires-operator-role",
+              client: connectParams.client.id,
+              clientDisplayName: connectParams.client.displayName,
+              mode: connectParams.client.mode,
+              version: connectParams.client.version,
+            });
+            send({
+              type: "res",
+              id: frame.id,
+              ok: false,
+              error: errorShape(
+                ErrorCodes.INVALID_REQUEST,
+                "tenant token connections only support operator role",
+              ),
+            });
+            close(1008, "invalid role");
+            return;
+          }
+
+          const tenantScopes = scopes.filter((scope) => TENANT_ALLOWED_SCOPES.has(scope));
+          scopes = tenantScopes.length > 0 ? tenantScopes : [...TENANT_DEFAULT_SCOPES];
+          connectParams.scopes = scopes;
+        }
         let authOk = authResult.ok;
         let authMethod =
           authResult.method ?? (resolvedAuth.mode === "password" ? "password" : "token");
@@ -883,6 +915,7 @@ export function attachGatewayWsMessageHandler(params: {
           connId,
           presenceKey,
           clientIp: reportedClientIp,
+          tenantId: authResult.tenantId,
         };
         setClient(nextClient);
         setHandshakeState("connected");

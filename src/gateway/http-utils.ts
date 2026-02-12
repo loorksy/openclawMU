@@ -1,6 +1,11 @@
 import type { IncomingMessage } from "node:http";
 import { randomUUID } from "node:crypto";
-import { buildAgentMainSessionKey, normalizeAgentId } from "../routing/session-key.js";
+import {
+  buildAgentMainSessionKey,
+  normalizeAgentId,
+  parseTenantSessionKey,
+  toTenantSessionKey,
+} from "../routing/session-key.js";
 
 export function getHeader(req: IncomingMessage, name: string): string | undefined {
   const raw = req.headers[name.toLowerCase()];
@@ -76,4 +81,31 @@ export function resolveSessionKey(params: {
   const user = params.user?.trim();
   const mainKey = user ? `${params.prefix}-user:${user}` : `${params.prefix}:${randomUUID()}`;
   return buildAgentMainSessionKey({ agentId: params.agentId, mainKey });
+}
+
+export function scopeSessionKeyToTenant(params: {
+  sessionKey: string;
+  tenantId?: string;
+}): { ok: true; sessionKey: string } | { ok: false; error: string } {
+  // OPENCLAWMU ADDITION: HTTP tenant-session scoping guard.
+  const tenantId = params.tenantId?.trim().toLowerCase();
+  if (!tenantId) {
+    return { ok: true, sessionKey: params.sessionKey };
+  }
+
+  const explicitTenantKey = parseTenantSessionKey(params.sessionKey);
+  if (explicitTenantKey && explicitTenantKey.tenantId !== tenantId) {
+    return {
+      ok: false,
+      error: `session key tenant "${explicitTenantKey.tenantId}" does not match authenticated tenant "${tenantId}"`,
+    };
+  }
+
+  return {
+    ok: true,
+    sessionKey: toTenantSessionKey({
+      tenantId,
+      sessionKey: params.sessionKey,
+    }),
+  };
 }

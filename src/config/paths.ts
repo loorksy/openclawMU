@@ -252,3 +252,27 @@ export function resolveGatewayPort(
   }
   return DEFAULT_GATEWAY_PORT;
 }
+
+/**
+ * Resolves the state directory for a specific tenant.
+ * Returns the base state directory if tenantId is undefined (backward compatible).
+ *
+ * @param tenantId - The tenant identifier (optional for backward compatibility)
+ * @param env - Environment variables (optional)
+ * @returns Absolute path to the tenant's state directory
+ *
+ * @example
+ * resolveStateDirForTenant("demo") // ~/.openclaw/tenants/demo
+ * resolveStateDirForTenant(undefined) // ~/.openclaw (backward compat)
+ */
+export function resolveStateDirForTenant(
+  tenantId: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+  homedir: () => string = os.homedir,
+): string {
+  const baseDir = resolveStateDir(env, homedir);
+  if (!tenantId) {
+    return baseDir;
+  }
+  return path.join(baseDir, "tenants", tenantId);
+}

@@ -2,6 +2,7 @@ import type { IncomingMessage } from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import type { GatewayAuthConfig, GatewayTailscaleMode } from "../config/config.js";
 import { readTailscaleWhoisIdentity, type TailscaleWhoisIdentity } from "../infra/tailscale.js";
+import { validateTenantToken, parseTenantToken } from "../tenants/index.js";
 import { isTrustedProxyAddress, parseForwardedForClientIp, resolveGatewayClientIp } from "./net.js";
 export type ResolvedGatewayAuthMode = "token" | "password";
 
@@ -14,8 +15,10 @@ export type ResolvedGatewayAuth = {
 
 export type GatewayAuthResult = {
   ok: boolean;
-  method?: "token" | "password" | "tailscale" | "device-token";
+  method?: "token" | "password" | "tailscale" | "device-token" | "tenant-token";
   user?: string;
+  /** Tenant ID for multi-tenant authentication. */
+  tenantId?: string;
   reason?: string;
 };
 
@@ -245,6 +248,21 @@ export async function authorizeGatewayConnect(params: {
   const { auth, connectAuth, req, trustedProxies } = params;
   const tailscaleWhois = params.tailscaleWhois ?? readTailscaleWhoisIdentity;
   const localDirect = isLocalDirectRequest(req, trustedProxies);
+
+  // OPENCLAWMU ADDITION: multi-tenant auth path.
+  // Try tenant token authentication first (format: "tenant:{tenantId}:{token}")
+  if (connectAuth?.token && parseTenantToken(connectAuth.token)) {
+    const tenantContext = validateTenantToken(connectAuth.token);
+    if (tenantContext) {
+      return {
+        ok: true,
+        method: "tenant-token",
+        tenantId: tenantContext.tenantId,
+        user: `tenant:${tenantContext.tenantId}`,
+      };
+    }
+    return { ok: false, reason: "tenant_token_invalid" };
+  }
 
   if (auth.allowTailscale && !localDirect) {
     const tailscaleCheck = await resolveVerifiedTailscaleUser({

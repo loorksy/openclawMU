@@ -7,4 +7,6 @@ export type GatewayWsClient = {
   connId: string;
   presenceKey?: string;
   clientIp?: string;
+  /** Tenant ID for multi-tenant authentication. */
+  tenantId?: string;
 };

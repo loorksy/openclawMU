@@ -6,7 +6,9 @@ export type ParsedAgentSessionKey = {
 export function parseAgentSessionKey(
   sessionKey: string | undefined | null,
 ): ParsedAgentSessionKey | null {
-  const raw = (sessionKey ?? "").trim();
+  const rawInitial = (sessionKey ?? "").trim();
+  // OPENCLAWMU ADDITION: support tenant-prefixed agent session keys.
+  const raw = rawInitial.replace(/^tenant:[^:]+:/i, "");
   if (!raw) {
     return null;
   }
