@@ -13,7 +13,8 @@ type GatewayResponse = {
 
 describe("tenant isolation authorization", () => {
   it("blocks non-tenant-safe methods for tenant tokens", () => {
-    const err = authorizeGatewayMethod("config.get", {
+    // Use wizard.start as an example of a blocked method (config.get is now allowed)
+    const err = authorizeGatewayMethod("wizard.start", {
       connect: {
         role: "operator",
         scopes: ["operator.read", "operator.write"],

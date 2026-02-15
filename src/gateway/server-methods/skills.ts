@@ -1,5 +1,5 @@
 import type { OpenClawConfig } from "../../config/config.js";
-import type { GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./types.js";
 import {
   listAgentIds,
   resolveAgentWorkspaceDir,
@@ -8,9 +8,11 @@ import {
 import { installSkill } from "../../agents/skills-install.js";
 import { buildWorkspaceSkillStatus } from "../../agents/skills-status.js";
 import { loadWorkspaceSkillEntries, type SkillEntry } from "../../agents/skills.js";
-import { loadConfig, writeConfigFile } from "../../config/config.js";
+import { loadConfig, writeConfigFile, loadConfigForTenant } from "../../config/config.js";
+import { updateTenantConfig } from "../../config/tenant-config.js";
 import { getRemoteSkillEligibility } from "../../infra/skills-remote.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
+import { resolveTenantWorkspace } from "../../tenants/paths.js";
 import {
   ErrorCodes,
   errorShape,
@@ -21,17 +23,47 @@ import {
   validateSkillsUpdateParams,
 } from "../protocol/index.js";
 
-function listWorkspaceDirs(cfg: OpenClawConfig): string[] {
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Load config for the request context (tenant or global).
+ */
+function loadConfigForRequest(opts: GatewayRequestHandlerOptions): OpenClawConfig {
+  const tenantId = getTenantId(opts);
+  return tenantId ? loadConfigForTenant(tenantId) : loadConfig();
+}
+
+/**
+ * Resolve workspace directory for a tenant.
+ * Tenants have a single workspace at {tenantDir}/workspace.
+ */
+function resolveTenantAgentWorkspaceDir(tenantId: string, agentId: string): string {
+  // For tenants, all agents share the same workspace for simplicity
+  // Skills are installed per-workspace, not per-agent
+  return resolveTenantWorkspace(tenantId);
+}
+
+function listWorkspaceDirs(cfg: OpenClawConfig, tenantId?: string): string[] {
   const dirs = new Set<string>();
-  const list = cfg.agents?.list;
-  if (Array.isArray(list)) {
-    for (const entry of list) {
-      if (entry && typeof entry === "object" && typeof entry.id === "string") {
-        dirs.add(resolveAgentWorkspaceDir(cfg, entry.id));
+  if (tenantId) {
+    // For tenants, use the single tenant workspace
+    dirs.add(resolveTenantWorkspace(tenantId));
+  } else {
+    const list = cfg.agents?.list;
+    if (Array.isArray(list)) {
+      for (const entry of list) {
+        if (entry && typeof entry === "object" && typeof entry.id === "string") {
+          dirs.add(resolveAgentWorkspaceDir(cfg, entry.id));
+        }
       }
     }
+    dirs.add(resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg)));
   }
-  dirs.add(resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg)));
   return [...dirs];
 }
 
@@ -67,7 +99,8 @@ function collectSkillBins(entries: SkillEntry[]): string[] {
 }
 
 export const skillsHandlers: GatewayRequestHandlers = {
-  "skills.status": ({ params, respond }) => {
+  "skills.status": (opts) => {
+    const { params, respond } = opts;
     if (!validateSkillsStatusParams(params)) {
       respond(
         false,
@@ -79,7 +112,8 @@ export const skillsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const cfg = loadConfig();
+    const tenantId = getTenantId(opts);
+    const cfg = loadConfigForRequest(opts);
     const agentIdRaw = typeof params?.agentId === "string" ? params.agentId.trim() : "";
     const agentId = agentIdRaw ? normalizeAgentId(agentIdRaw) : resolveDefaultAgentId(cfg);
     if (agentIdRaw) {
@@ -93,14 +127,17 @@ export const skillsHandlers: GatewayRequestHandlers = {
         return;
       }
     }
-    const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
+    const workspaceDir = tenantId
+      ? resolveTenantAgentWorkspaceDir(tenantId, agentId)
+      : resolveAgentWorkspaceDir(cfg, agentId);
     const report = buildWorkspaceSkillStatus(workspaceDir, {
       config: cfg,
       eligibility: { remote: getRemoteSkillEligibility() },
     });
     respond(true, report, undefined);
   },
-  "skills.bins": ({ params, respond }) => {
+  "skills.bins": (opts) => {
+    const { params, respond } = opts;
     if (!validateSkillsBinsParams(params)) {
       respond(
         false,
@@ -112,8 +149,9 @@ export const skillsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const cfg = loadConfig();
-    const workspaceDirs = listWorkspaceDirs(cfg);
+    const tenantId = getTenantId(opts);
+    const cfg = loadConfigForRequest(opts);
+    const workspaceDirs = listWorkspaceDirs(cfg, tenantId);
     const bins = new Set<string>();
     for (const workspaceDir of workspaceDirs) {
       const entries = loadWorkspaceSkillEntries(workspaceDir, { config: cfg });
@@ -123,7 +161,8 @@ export const skillsHandlers: GatewayRequestHandlers = {
     }
     respond(true, { bins: [...bins].toSorted() }, undefined);
   },
-  "skills.install": async ({ params, respond }) => {
+  "skills.install": async (opts) => {
+    const { params, respond } = opts;
     if (!validateSkillsInstallParams(params)) {
       respond(
         false,
@@ -140,8 +179,11 @@ export const skillsHandlers: GatewayRequestHandlers = {
       installId: string;
       timeoutMs?: number;
     };
-    const cfg = loadConfig();
-    const workspaceDirRaw = resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg));
+    const tenantId = getTenantId(opts);
+    const cfg = loadConfigForRequest(opts);
+    const workspaceDirRaw = tenantId
+      ? resolveTenantWorkspace(tenantId)
+      : resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg));
     const result = await installSkill({
       workspaceDir: workspaceDirRaw,
       skillName: p.name,
@@ -155,7 +197,8 @@ export const skillsHandlers: GatewayRequestHandlers = {
       result.ok ? undefined : errorShape(ErrorCodes.UNAVAILABLE, result.message),
     );
   },
-  "skills.update": async ({ params, respond }) => {
+  "skills.update": async (opts) => {
+    const { params, respond } = opts;
     if (!validateSkillsUpdateParams(params)) {
       respond(
         false,
@@ -173,7 +216,8 @@ export const skillsHandlers: GatewayRequestHandlers = {
       apiKey?: string;
       env?: Record<string, string>;
     };
-    const cfg = loadConfig();
+    const tenantId = getTenantId(opts);
+    const cfg = loadConfigForRequest(opts);
     const skills = cfg.skills ? { ...cfg.skills } : {};
     const entries = skills.entries ? { ...skills.entries } : {};
     const current = entries[p.skillKey] ? { ...entries[p.skillKey] } : {};
@@ -206,11 +250,26 @@ export const skillsHandlers: GatewayRequestHandlers = {
     }
     entries[p.skillKey] = current;
     skills.entries = entries;
-    const nextConfig: OpenClawConfig = {
-      ...cfg,
-      skills,
-    };
-    await writeConfigFile(nextConfig);
+
+    if (tenantId) {
+      // Tenant-specific: write to tenant config overlay
+      await updateTenantConfig(tenantId, (overlay) => ({
+        ...overlay,
+        skills: {
+          ...overlay.skills,
+          entries: {
+            ...overlay.skills?.entries,
+            [p.skillKey]: current,
+          },
+        },
+      }));
+    } else {
+      const nextConfig: OpenClawConfig = {
+        ...cfg,
+        skills,
+      };
+      await writeConfigFile(nextConfig);
+    }
     respond(true, { ok: true, skillKey: p.skillKey, config: current }, undefined);
   },
 };

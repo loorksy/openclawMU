@@ -1,8 +1,11 @@
-import type { CronJobCreate, CronJobPatch } from "../../cron/types.js";
-import type { GatewayRequestHandlers } from "./types.js";
+import { randomUUID } from "node:crypto";
+import type { CronJob, CronJobCreate, CronJobPatch, CronStoreFile } from "../../cron/types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./types.js";
 import { normalizeCronJobCreate, normalizeCronJobPatch } from "../../cron/normalize.js";
 import { readCronRunLogEntries, resolveCronRunLogPath } from "../../cron/run-log.js";
+import { loadCronStore, saveCronStore } from "../../cron/store.js";
 import { validateScheduleTimestamp } from "../../cron/validate-timestamp.js";
+import { resolveTenantCronStorePath } from "../../tenants/paths.js";
 import {
   ErrorCodes,
   errorShape,
@@ -17,8 +20,90 @@ import {
   validateWakeParams,
 } from "../protocol/index.js";
 
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Tenant-specific cron helpers.
+ * Tenants have their own cron job storage but no automatic scheduling.
+ * Jobs can be manually triggered via cron.run.
+ */
+async function loadTenantCronJobs(tenantId: string): Promise<CronStoreFile> {
+  const storePath = resolveTenantCronStorePath(tenantId);
+  return await loadCronStore(storePath);
+}
+
+async function saveTenantCronJobs(tenantId: string, store: CronStoreFile): Promise<void> {
+  const storePath = resolveTenantCronStorePath(tenantId);
+  await saveCronStore(storePath, store);
+}
+
+function createCronJob(create: CronJobCreate): CronJob {
+  const now = Date.now();
+  return {
+    ...create,
+    id: randomUUID(),
+    createdAtMs: now,
+    updatedAtMs: now,
+    state: create.state ?? {},
+  };
+}
+
+function patchCronJob(job: CronJob, patch: CronJobPatch): CronJob {
+  const updated: CronJob = { ...job, updatedAtMs: Date.now() };
+  if (patch.name !== undefined) {
+    updated.name = patch.name;
+  }
+  if (patch.description !== undefined) {
+    updated.description = patch.description;
+  }
+  if (patch.enabled !== undefined) {
+    updated.enabled = patch.enabled;
+  }
+  if (patch.deleteAfterRun !== undefined) {
+    updated.deleteAfterRun = patch.deleteAfterRun;
+  }
+  if (patch.schedule !== undefined) {
+    updated.schedule = patch.schedule;
+  }
+  if (patch.sessionTarget !== undefined) {
+    updated.sessionTarget = patch.sessionTarget;
+  }
+  if (patch.wakeMode !== undefined) {
+    updated.wakeMode = patch.wakeMode;
+  }
+  if (patch.agentId !== undefined) {
+    updated.agentId = patch.agentId;
+  }
+  if (patch.payload !== undefined) {
+    updated.payload = { ...job.payload, ...patch.payload } as CronJob["payload"];
+  }
+  if (patch.delivery !== undefined) {
+    updated.delivery = { ...job.delivery, ...patch.delivery };
+  }
+  if (patch.state !== undefined) {
+    updated.state = { ...job.state, ...patch.state };
+  }
+  return updated;
+}
+
 export const cronHandlers: GatewayRequestHandlers = {
-  wake: ({ params, respond, context }) => {
+  wake: (opts) => {
+    const { params, respond, context } = opts;
+    // Wake is not available for tenants (requires global heartbeat access)
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "wake not available for tenant tokens"),
+      );
+      return;
+    }
     if (!validateWakeParams(params)) {
       respond(
         false,
@@ -37,7 +122,8 @@ export const cronHandlers: GatewayRequestHandlers = {
     const result = context.cron.wake({ mode: p.mode, text: p.text });
     respond(true, result, undefined);
   },
-  "cron.list": async ({ params, respond, context }) => {
+  "cron.list": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateCronListParams(params)) {
       respond(
         false,
@@ -50,12 +136,21 @@ export const cronHandlers: GatewayRequestHandlers = {
       return;
     }
     const p = params as { includeDisabled?: boolean };
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // Tenant-specific: load from tenant cron store
+      const store = await loadTenantCronJobs(tenantId);
+      const jobs = p.includeDisabled ? store.jobs : store.jobs.filter((job) => job.enabled);
+      respond(true, { jobs }, undefined);
+      return;
+    }
     const jobs = await context.cron.list({
       includeDisabled: p.includeDisabled,
     });
     respond(true, { jobs }, undefined);
   },
-  "cron.status": async ({ params, respond, context }) => {
+  "cron.status": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateCronStatusParams(params)) {
       respond(
         false,
@@ -67,10 +162,28 @@ export const cronHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // Tenant-specific: return basic status (no scheduler)
+      const store = await loadTenantCronJobs(tenantId);
+      respond(
+        true,
+        {
+          enabled: false, // Tenants don't have automatic scheduling
+          schedulerRunning: false,
+          jobCount: store.jobs.length,
+          enabledJobCount: store.jobs.filter((j) => j.enabled).length,
+          note: "Tenant cron jobs require manual execution via cron.run",
+        },
+        undefined,
+      );
+      return;
+    }
     const status = await context.cron.status();
     respond(true, status, undefined);
   },
-  "cron.add": async ({ params, respond, context }) => {
+  "cron.add": async (opts) => {
+    const { params, respond, context } = opts;
     const normalized = normalizeCronJobCreate(params) ?? params;
     if (!validateCronAddParams(normalized)) {
       respond(
@@ -93,10 +206,21 @@ export const cronHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // Tenant-specific: add to tenant cron store
+      const store = await loadTenantCronJobs(tenantId);
+      const job = createCronJob(jobCreate);
+      store.jobs.push(job);
+      await saveTenantCronJobs(tenantId, store);
+      respond(true, job, undefined);
+      return;
+    }
     const job = await context.cron.add(jobCreate);
     respond(true, job, undefined);
   },
-  "cron.update": async ({ params, respond, context }) => {
+  "cron.update": async (opts) => {
+    const { params, respond, context } = opts;
     const normalizedPatch = normalizeCronJobPatch((params as { patch?: unknown } | null)?.patch);
     const candidate =
       normalizedPatch && typeof params === "object" && params !== null
@@ -139,10 +263,30 @@ export const cronHandlers: GatewayRequestHandlers = {
         return;
       }
     }
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // Tenant-specific: update in tenant cron store
+      const store = await loadTenantCronJobs(tenantId);
+      const jobIndex = store.jobs.findIndex((j) => j.id === jobId);
+      if (jobIndex < 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, `job not found: ${jobId}`),
+        );
+        return;
+      }
+      const updated = patchCronJob(store.jobs[jobIndex], patch);
+      store.jobs[jobIndex] = updated;
+      await saveTenantCronJobs(tenantId, store);
+      respond(true, updated, undefined);
+      return;
+    }
     const job = await context.cron.update(jobId, patch);
     respond(true, job, undefined);
   },
-  "cron.remove": async ({ params, respond, context }) => {
+  "cron.remove": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateCronRemoveParams(params)) {
       respond(
         false,
@@ -164,10 +308,25 @@ export const cronHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // Tenant-specific: remove from tenant cron store
+      const store = await loadTenantCronJobs(tenantId);
+      const jobIndex = store.jobs.findIndex((j) => j.id === jobId);
+      if (jobIndex < 0) {
+        respond(true, { removed: false, jobId }, undefined);
+        return;
+      }
+      store.jobs.splice(jobIndex, 1);
+      await saveTenantCronJobs(tenantId, store);
+      respond(true, { removed: true, jobId }, undefined);
+      return;
+    }
     const result = await context.cron.remove(jobId);
     respond(true, result, undefined);
   },
-  "cron.run": async ({ params, respond, context }) => {
+  "cron.run": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateCronRunParams(params)) {
       respond(
         false,
@@ -189,10 +348,25 @@ export const cronHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // Tenant-specific: manual execution is not supported (no runtime)
+      // Tenants can define jobs but cannot execute them without admin help
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          "cron.run not available for tenant tokens - jobs must be executed by admin",
+        ),
+      );
+      return;
+    }
     const result = await context.cron.run(jobId, p.mode ?? "force");
     respond(true, result, undefined);
   },
-  "cron.runs": async ({ params, respond, context }) => {
+  "cron.runs": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateCronRunsParams(params)) {
       respond(
         false,
@@ -214,8 +388,10 @@ export const cronHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    const tenantId = getTenantId(opts);
+    const storePath = tenantId ? resolveTenantCronStorePath(tenantId) : context.cronStorePath;
     const logPath = resolveCronRunLogPath({
-      storePath: context.cronStorePath,
+      storePath,
       jobId,
     });
     const entries = await readCronRunLogEntries(logPath, {

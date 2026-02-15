@@ -1,4 +1,4 @@
-import type { GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./types.js";
 import { loadConfig } from "../../config/config.js";
 import { listDevicePairing } from "../../infra/device-pairing.js";
 import {
@@ -9,6 +9,7 @@ import {
   requestNodePairing,
   verifyNodeToken,
 } from "../../infra/node-pairing.js";
+import { resolveTenantStateDir } from "../../tenants/paths.js";
 import { isNodeCommandAllowed, resolveNodeCommandAllowlist } from "../node-command-policy.js";
 import {
   ErrorCodes,
@@ -31,6 +32,22 @@ import {
   safeParseJson,
   uniqueSortedStrings,
 } from "./nodes.helpers.js";
+
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Get the base directory for node pairing storage.
+ * For tenants, this is the tenant's state directory.
+ */
+function getBaseDir(opts: GatewayRequestHandlerOptions): string | undefined {
+  const tenantId = getTenantId(opts);
+  return tenantId ? resolveTenantStateDir(tenantId) : undefined;
+}
 
 function isNodeEntry(entry: { role?: string; roles?: string[] }) {
   if (entry.role === "node") {
@@ -63,7 +80,8 @@ function normalizeNodeInvokeResultParams(params: unknown): unknown {
 }
 
 export const nodeHandlers: GatewayRequestHandlers = {
-  "node.pair.request": async ({ params, respond, context }) => {
+  "node.pair.request": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateNodePairRequestParams(params)) {
       respondInvalidParams({
         respond,
@@ -86,6 +104,7 @@ export const nodeHandlers: GatewayRequestHandlers = {
       remoteIp?: string;
       silent?: boolean;
     };
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
       const result = await requestNodePairing({
         nodeId: p.nodeId,
@@ -100,6 +119,7 @@ export const nodeHandlers: GatewayRequestHandlers = {
         commands: p.commands,
         remoteIp: p.remoteIp,
         silent: p.silent,
+        baseDir,
       });
       if (result.status === "pending" && result.created) {
         context.broadcast("node.pair.requested", result.request, {
@@ -109,7 +129,8 @@ export const nodeHandlers: GatewayRequestHandlers = {
       respond(true, result, undefined);
     });
   },
-  "node.pair.list": async ({ params, respond }) => {
+  "node.pair.list": async (opts) => {
+    const { params, respond } = opts;
     if (!validateNodePairListParams(params)) {
       respondInvalidParams({
         respond,
@@ -118,12 +139,14 @@ export const nodeHandlers: GatewayRequestHandlers = {
       });
       return;
     }
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const list = await listNodePairing();
+      const list = await listNodePairing(baseDir);
       respond(true, list, undefined);
     });
   },
-  "node.pair.approve": async ({ params, respond, context }) => {
+  "node.pair.approve": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateNodePairApproveParams(params)) {
       respondInvalidParams({
         respond,
@@ -133,8 +156,9 @@ export const nodeHandlers: GatewayRequestHandlers = {
       return;
     }
     const { requestId } = params as { requestId: string };
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const approved = await approveNodePairing(requestId);
+      const approved = await approveNodePairing(requestId, baseDir);
       if (!approved) {
         respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown requestId"));
         return;
@@ -152,7 +176,8 @@ export const nodeHandlers: GatewayRequestHandlers = {
       respond(true, approved, undefined);
     });
   },
-  "node.pair.reject": async ({ params, respond, context }) => {
+  "node.pair.reject": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateNodePairRejectParams(params)) {
       respondInvalidParams({
         respond,
@@ -162,8 +187,9 @@ export const nodeHandlers: GatewayRequestHandlers = {
       return;
     }
     const { requestId } = params as { requestId: string };
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const rejected = await rejectNodePairing(requestId);
+      const rejected = await rejectNodePairing(requestId, baseDir);
       if (!rejected) {
         respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown requestId"));
         return;
@@ -181,7 +207,8 @@ export const nodeHandlers: GatewayRequestHandlers = {
       respond(true, rejected, undefined);
     });
   },
-  "node.pair.verify": async ({ params, respond }) => {
+  "node.pair.verify": async (opts) => {
+    const { params, respond } = opts;
     if (!validateNodePairVerifyParams(params)) {
       respondInvalidParams({
         respond,
@@ -194,12 +221,14 @@ export const nodeHandlers: GatewayRequestHandlers = {
       nodeId: string;
       token: string;
     };
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const result = await verifyNodeToken(nodeId, token);
+      const result = await verifyNodeToken(nodeId, token, baseDir);
       respond(true, result, undefined);
     });
   },
-  "node.rename": async ({ params, respond }) => {
+  "node.rename": async (opts) => {
+    const { params, respond } = opts;
     if (!validateNodeRenameParams(params)) {
       respondInvalidParams({
         respond,
@@ -212,13 +241,14 @@ export const nodeHandlers: GatewayRequestHandlers = {
       nodeId: string;
       displayName: string;
     };
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
       const trimmed = displayName.trim();
       if (!trimmed) {
         respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "displayName required"));
         return;
       }
-      const updated = await renamePairedNode(nodeId, trimmed);
+      const updated = await renamePairedNode(nodeId, trimmed, baseDir);
       if (!updated) {
         respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown nodeId"));
         return;
@@ -226,7 +256,8 @@ export const nodeHandlers: GatewayRequestHandlers = {
       respond(true, { nodeId: updated.nodeId, displayName: updated.displayName }, undefined);
     });
   },
-  "node.list": async ({ params, respond, context }) => {
+  "node.list": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateNodeListParams(params)) {
       respondInvalidParams({
         respond,
@@ -235,8 +266,9 @@ export const nodeHandlers: GatewayRequestHandlers = {
       });
       return;
     }
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const list = await listDevicePairing();
+      const list = await listDevicePairing(baseDir);
       const pairedById = new Map(
         list.paired
           .filter((entry) => isNodeEntry(entry))
@@ -307,7 +339,8 @@ export const nodeHandlers: GatewayRequestHandlers = {
       respond(true, { ts: Date.now(), nodes }, undefined);
     });
   },
-  "node.describe": async ({ params, respond, context }) => {
+  "node.describe": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateNodeDescribeParams(params)) {
       respondInvalidParams({
         respond,
@@ -322,8 +355,9 @@ export const nodeHandlers: GatewayRequestHandlers = {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "nodeId required"));
       return;
     }
+    const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const list = await listDevicePairing();
+      const list = await listDevicePairing(baseDir);
       const paired = list.paired.find((n) => n.deviceId === id && isNodeEntry(n));
       const connected = context.nodeRegistry.listConnected();
       const live = connected.find((n) => n.nodeId === id);

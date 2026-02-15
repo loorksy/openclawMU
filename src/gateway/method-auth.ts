@@ -18,9 +18,51 @@ const TENANT_ALLOWED_METHODS = new Set([
   "tenants.rotate",
   "tenants.backup",
   "tenants.backups.list",
+  "tenants.restore",
+  "tenants.delete",
   "tenants.usage",
   "tenants.quota.status",
   "tenants.usage.history",
+  // Config management (tenant overlay)
+  "config.get",
+  "config.set",
+  "config.patch",
+  "config.schema",
+  // Agent management (read-only for now)
+  "agents.list",
+  // Session management
+  "sessions.list",
+  "sessions.preview",
+  // Cron management (tenant-isolated, no auto-scheduling)
+  "cron.list",
+  "cron.add",
+  "cron.update",
+  "cron.remove",
+  "cron.status",
+  "cron.runs",
+  // Skills management (tenant-isolated)
+  "skills.status",
+  "skills.bins",
+  "skills.install",
+  "skills.update",
+  // Channels (read-only for tenants - operations require admin credentials)
+  "channels.status",
+  // Device pairing (tenant-isolated)
+  "device.pair.list",
+  "device.pair.approve",
+  "device.pair.reject",
+  "device.token.rotate",
+  "device.token.revoke",
+  // Node pairing (tenant-isolated)
+  "node.pair.request",
+  "node.pair.list",
+  "node.pair.approve",
+  "node.pair.reject",
+  "node.pair.verify",
+  "node.rename",
+  "node.list",
+  "node.describe",
+  "node.invoke",
 ]);
 
 const APPROVAL_METHODS = new Set(["exec.approval.request", "exec.approval.resolve"]);
@@ -146,6 +188,10 @@ export function authorizeGatewayMethod(method: string, client: GatewayClient | n
   }
   if (ADMIN_METHOD_PREFIXES.some((prefix) => method.startsWith(prefix))) {
     return errorShape(ErrorCodes.INVALID_REQUEST, "missing scope: operator.admin");
+  }
+  // Allow tenant tokens to use whitelisted methods even if they would normally require admin scope
+  if (client.tenantId && TENANT_ALLOWED_METHODS.has(method)) {
+    return null;
   }
   if (
     method.startsWith("config.") ||

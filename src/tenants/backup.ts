@@ -87,14 +87,50 @@ async function createTarGz(sourceDir: string, outputPath: string): Promise<void>
 
 /**
  * Extracts a tar.gz archive to a directory.
+ * Includes security measures to prevent symlink/path traversal attacks.
  */
 async function extractTarGz(archivePath: string, targetDir: string): Promise<void> {
   await fs.mkdir(targetDir, { recursive: true });
+
+  // Resolve the absolute target directory for security checks
+  const resolvedTargetDir = path.resolve(targetDir);
 
   await tar.extract({
     file: archivePath,
     cwd: targetDir,
     strip: 0,
+    // Security: reject absolute paths in archive
+    preservePaths: false,
+    // Security: don't change file permissions
+    noChmod: true,
+    // Security: don't preserve mtime (reduces attack surface)
+    noMtime: true,
+    // Security: filter out dangerous entries
+    filter: (entryPath, entry) => {
+      // Reject symlinks that could point outside the target directory
+      if (entry.type === "SymbolicLink" || entry.type === "Link") {
+        const linkTarget = entry.linkpath ?? "";
+        // Resolve the symlink target relative to the entry's parent directory
+        const entryDir = path.dirname(path.join(resolvedTargetDir, entryPath));
+        const resolvedLink = path.resolve(entryDir, linkTarget);
+        // Reject if the link points outside the target directory
+        if (
+          !resolvedLink.startsWith(resolvedTargetDir + path.sep) &&
+          resolvedLink !== resolvedTargetDir
+        ) {
+          return false;
+        }
+      }
+      // Reject paths that try to escape (should be caught by preservePaths: false, but defense in depth)
+      const resolvedEntry = path.resolve(resolvedTargetDir, entryPath);
+      if (
+        !resolvedEntry.startsWith(resolvedTargetDir + path.sep) &&
+        resolvedEntry !== resolvedTargetDir
+      ) {
+        return false;
+      }
+      return true;
+    },
   });
 }
 

@@ -86,8 +86,9 @@ export function hasAuthorizedWsClientForIp(
   clientIp: string,
 ): boolean {
   for (const client of clients) {
-    // OPENCLAWMU ADDITION: tenant-scoped clients must not grant canvas access.
-    if (client.clientIp && client.clientIp === clientIp && !client.tenantId) {
+    // OPENCLAWMU: Allow both tenant and non-tenant clients for canvas access.
+    // Note: Canvas resource isolation is not yet implemented - tenants may see global canvas data.
+    if (client.clientIp && client.clientIp === clientIp) {
       return true;
     }
   }
@@ -113,8 +114,9 @@ async function authorizeCanvasRequest(params: {
       req,
       trustedProxies,
     });
-    // OPENCLAWMU ADDITION: tenant tokens are excluded from canvas bearer auth.
-    if (authResult.ok && authResult.method !== "tenant-token") {
+    // OPENCLAWMU: Allow both tenant and non-tenant tokens for canvas access.
+    // Note: Canvas resource isolation is not yet implemented - tenants may see global canvas data.
+    if (authResult.ok) {
       return true;
     }
   }

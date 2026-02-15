@@ -1,6 +1,10 @@
 import type { ChannelAccountSnapshot, ChannelPlugin } from "../../channels/plugins/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
-import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
+import type {
+  GatewayRequestContext,
+  GatewayRequestHandlers,
+  GatewayRequestHandlerOptions,
+} from "./types.js";
 import { buildChannelUiCatalog } from "../../channels/plugins/catalog.js";
 import { resolveChannelDefaultAccountId } from "../../channels/plugins/helpers.js";
 import {
@@ -10,7 +14,7 @@ import {
   normalizeChannelId,
 } from "../../channels/plugins/index.js";
 import { buildChannelAccountSnapshot } from "../../channels/plugins/status.js";
-import { loadConfig, readConfigFileSnapshot } from "../../config/config.js";
+import { loadConfig, loadConfigForTenant, readConfigFileSnapshot } from "../../config/config.js";
 import { getChannelActivity } from "../../infra/channel-activity.js";
 import { DEFAULT_ACCOUNT_ID } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
@@ -22,6 +26,21 @@ import {
   validateChannelsStatusParams,
 } from "../protocol/index.js";
 import { formatForLog } from "../ws-log.js";
+
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Load config for the request context (tenant or global).
+ */
+function loadConfigForRequest(opts: GatewayRequestHandlerOptions): OpenClawConfig {
+  const tenantId = getTenantId(opts);
+  return tenantId ? loadConfigForTenant(tenantId) : loadConfig();
+}
 
 type ChannelLogoutPayload = {
   channel: ChannelId;
@@ -67,7 +86,8 @@ export async function logoutChannelAccount(params: {
 }
 
 export const channelsHandlers: GatewayRequestHandlers = {
-  "channels.status": async ({ params, respond, context }) => {
+  "channels.status": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateChannelsStatusParams(params)) {
       respond(
         false,
@@ -79,10 +99,15 @@ export const channelsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    const tenantId = getTenantId(opts);
     const probe = (params as { probe?: boolean }).probe === true;
     const timeoutMsRaw = (params as { timeoutMs?: unknown }).timeoutMs;
     const timeoutMs = typeof timeoutMsRaw === "number" ? Math.max(1000, timeoutMsRaw) : 10_000;
-    const cfg = loadConfig();
+    const cfg = loadConfigForRequest(opts);
+
+    // For tenants, we show their channel configuration but can't probe
+    // since credentials are not tenant-isolated yet
+    const canProbe = !tenantId;
     const runtime = context.getRuntimeSnapshot();
     const plugins = listChannelPlugins();
     const pluginMap = new Map<ChannelId, ChannelPlugin>(
@@ -135,7 +160,7 @@ export const channelsHandlers: GatewayRequestHandlers = {
         resolvedAccounts[accountId] = account;
         let probeResult: unknown;
         let lastProbeAt: number | null = null;
-        if (probe && enabled && plugin.status?.probeAccount) {
+        if (canProbe && probe && enabled && plugin.status?.probeAccount) {
           let configured = true;
           if (plugin.config.isConfigured) {
             configured = await plugin.config.isConfigured(account, cfg);
@@ -150,7 +175,7 @@ export const channelsHandlers: GatewayRequestHandlers = {
           }
         }
         let auditResult: unknown;
-        if (probe && enabled && plugin.status?.auditAccount) {
+        if (canProbe && probe && enabled && plugin.status?.auditAccount) {
           let configured = true;
           if (plugin.config.isConfigured) {
             configured = await plugin.config.isConfigured(account, cfg);
@@ -234,7 +259,21 @@ export const channelsHandlers: GatewayRequestHandlers = {
 
     respond(true, payload, undefined);
   },
-  "channels.logout": async ({ params, respond, context }) => {
+  "channels.logout": async (opts) => {
+    const { params, respond, context } = opts;
+    // Block tenant access - channel logout requires admin credentials
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          "channels.logout not available for tenant tokens - requires admin credentials",
+        ),
+      );
+      return;
+    }
     if (!validateChannelsLogoutParams(params)) {
       respond(
         false,

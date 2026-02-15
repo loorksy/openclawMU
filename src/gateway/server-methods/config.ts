@@ -1,4 +1,5 @@
-import type { GatewayRequestHandlers, RespondFn } from "./types.js";
+import type { OpenClawConfig } from "../../config/types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions, RespondFn } from "./types.js";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../../agents/agent-scope.js";
 import { listChannelPlugins } from "../../channels/plugins/index.js";
 import {
@@ -9,6 +10,10 @@ import {
   resolveConfigSnapshotHash,
   validateConfigObjectWithPlugins,
   writeConfigFile,
+  loadConfigForTenant,
+  loadTenantConfigOverlay,
+  updateTenantConfig,
+  getAdminOnlyKeys,
 } from "../../config/config.js";
 import { applyLegacyMigrations } from "../../config/legacy.js";
 import { applyMergePatch } from "../../config/merge-patch.js";
@@ -25,6 +30,7 @@ import {
 } from "../../infra/restart-sentinel.js";
 import { scheduleGatewaySigusr1Restart } from "../../infra/restart.js";
 import { loadOpenClawPlugins } from "../../plugins/loader.js";
+import { resolveTenantConfigPath } from "../../tenants/paths.js";
 import {
   ErrorCodes,
   errorShape,
@@ -35,6 +41,20 @@ import {
   validateConfigSchemaParams,
   validateConfigSetParams,
 } from "../protocol/index.js";
+
+/**
+ * Check if the request is from a tenant token.
+ */
+function isTenantRequest(opts: GatewayRequestHandlerOptions): boolean {
+  return !!opts.client?.tenantId;
+}
+
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
 
 function resolveBaseHash(params: unknown): string | null {
   const raw = (params as { baseHash?: unknown })?.baseHash;
@@ -92,7 +112,8 @@ function requireConfigBaseHash(
 }
 
 export const configHandlers: GatewayRequestHandlers = {
-  "config.get": async ({ params, respond }) => {
+  "config.get": async (opts) => {
+    const { params, respond } = opts;
     if (!validateConfigGetParams(params)) {
       respond(
         false,
@@ -104,6 +125,35 @@ export const configHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // For tenant requests, return merged config (base + overlay)
+      const mergedConfig = loadConfigForTenant(tenantId);
+      const tenantOverlay = loadTenantConfigOverlay(tenantId);
+      const configPath = resolveTenantConfigPath(tenantId);
+      respond(
+        true,
+        {
+          path: configPath,
+          exists: true,
+          raw: JSON.stringify(tenantOverlay, null, 2),
+          parsed: tenantOverlay,
+          valid: true,
+          config: redactConfigObject(mergedConfig),
+          hash: null, // Tenant configs don't use hash-based concurrency
+          issues: [],
+          warnings: [],
+          legacyIssues: [],
+          isTenantOverlay: true,
+          adminOnlyKeys: getAdminOnlyKeys(),
+        },
+        undefined,
+      );
+      return;
+    }
+
+    // Admin/default request - return global config
     const snapshot = await readConfigFileSnapshot();
     respond(true, redactConfigSnapshot(snapshot), undefined);
   },
@@ -149,7 +199,8 @@ export const configHandlers: GatewayRequestHandlers = {
     });
     respond(true, schema, undefined);
   },
-  "config.set": async ({ params, respond }) => {
+  "config.set": async (opts) => {
+    const { params, respond } = opts;
     if (!validateConfigSetParams(params)) {
       respond(
         false,
@@ -161,10 +212,8 @@ export const configHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const snapshot = await readConfigFileSnapshot();
-    if (!requireConfigBaseHash(params, snapshot, respond)) {
-      return;
-    }
+
+    const tenantId = getTenantId(opts);
     const rawValue = (params as { raw?: unknown }).raw;
     if (typeof rawValue !== "string") {
       respond(
@@ -177,6 +226,31 @@ export const configHandlers: GatewayRequestHandlers = {
     const parsedRes = parseConfigJson5(rawValue);
     if (!parsedRes.ok) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, parsedRes.error));
+      return;
+    }
+
+    if (tenantId) {
+      // For tenant requests, write to tenant overlay (admin-only keys are filtered)
+      const configPath = resolveTenantConfigPath(tenantId);
+      const configObj = parsedRes.parsed as Partial<OpenClawConfig>;
+      await updateTenantConfig(tenantId, configObj);
+      const mergedConfig = loadConfigForTenant(tenantId);
+      respond(
+        true,
+        {
+          ok: true,
+          path: configPath,
+          config: redactConfigObject(mergedConfig),
+          isTenantOverlay: true,
+        },
+        undefined,
+      );
+      return;
+    }
+
+    // Admin/default request - write to global config
+    const snapshot = await readConfigFileSnapshot();
+    if (!requireConfigBaseHash(params, snapshot, respond)) {
       return;
     }
     const validated = validateConfigObjectWithPlugins(parsedRes.parsed);
@@ -215,7 +289,8 @@ export const configHandlers: GatewayRequestHandlers = {
       undefined,
     );
   },
-  "config.patch": async ({ params, respond }) => {
+  "config.patch": async (opts) => {
+    const { params, respond } = opts;
     if (!validateConfigPatchParams(params)) {
       respond(
         false,
@@ -227,18 +302,7 @@ export const configHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const snapshot = await readConfigFileSnapshot();
-    if (!requireConfigBaseHash(params, snapshot, respond)) {
-      return;
-    }
-    if (!snapshot.valid) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "invalid config; fix before patching"),
-      );
-      return;
-    }
+
     const rawValue = (params as { raw?: unknown }).raw;
     if (typeof rawValue !== "string") {
       respond(
@@ -265,6 +329,43 @@ export const configHandlers: GatewayRequestHandlers = {
         false,
         undefined,
         errorShape(ErrorCodes.INVALID_REQUEST, "config.patch raw must be an object"),
+      );
+      return;
+    }
+
+    const tenantId = getTenantId(opts);
+    if (tenantId) {
+      // For tenant requests, merge patch into tenant overlay (admin-only keys are filtered)
+      const configPath = resolveTenantConfigPath(tenantId);
+      const patchObj = parsedRes.parsed as Partial<OpenClawConfig>;
+      await updateTenantConfig(tenantId, patchObj);
+      const mergedConfig = loadConfigForTenant(tenantId);
+      respond(
+        true,
+        {
+          ok: true,
+          path: configPath,
+          config: redactConfigObject(mergedConfig),
+          isTenantOverlay: true,
+          // Tenants don't trigger gateway restarts
+          restart: null,
+          sentinel: null,
+        },
+        undefined,
+      );
+      return;
+    }
+
+    // Admin/default request - write to global config
+    const snapshot = await readConfigFileSnapshot();
+    if (!requireConfigBaseHash(params, snapshot, respond)) {
+      return;
+    }
+    if (!snapshot.valid) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid config; fix before patching"),
       );
       return;
     }

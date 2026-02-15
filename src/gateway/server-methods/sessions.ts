@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import type { GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./types.js";
 import { resolveDefaultAgentId } from "../../agents/agent-scope.js";
 import { abortEmbeddedPiRun, waitForEmbeddedPiRunEnd } from "../../agents/pi-embedded.js";
 import { stopSubagentsForRequester } from "../../auto-reply/reply/abort.js";
@@ -13,7 +13,12 @@ import {
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
-import { normalizeAgentId, parseAgentSessionKey } from "../../routing/session-key.js";
+import {
+  normalizeAgentId,
+  parseAgentSessionKey,
+  isTenantSessionKey,
+  extractTenantIdFromSessionKey,
+} from "../../routing/session-key.js";
 import {
   ErrorCodes,
   errorShape,
@@ -42,8 +47,24 @@ import {
 import { applySessionsPatchToStore } from "../sessions-patch.js";
 import { resolveSessionKeyFromResolveParams } from "../sessions-resolve.js";
 
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Check if a session key belongs to a tenant.
+ */
+function sessionKeyBelongsToTenant(sessionKey: string, tenantId: string): boolean {
+  const keyTenantId = extractTenantIdFromSessionKey(sessionKey);
+  return keyTenantId === tenantId;
+}
+
 export const sessionsHandlers: GatewayRequestHandlers = {
-  "sessions.list": ({ params, respond }) => {
+  "sessions.list": (opts) => {
+    const { params, respond } = opts;
     if (!validateSessionsListParams(params)) {
       respond(
         false,
@@ -58,15 +79,28 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     const p = params;
     const cfg = loadConfig();
     const { storePath, store } = loadCombinedSessionStoreForGateway(cfg);
-    const result = listSessionsFromStore({
+    let result = listSessionsFromStore({
       cfg,
       storePath,
       store,
       opts: p,
     });
+
+    // For tenant requests, filter sessions to only show tenant's own sessions
+    const tenantId = getTenantId(opts);
+    if (tenantId && result.sessions) {
+      result = {
+        ...result,
+        sessions: result.sessions.filter((session) =>
+          sessionKeyBelongsToTenant(session.key, tenantId),
+        ),
+      };
+    }
+
     respond(true, result, undefined);
   },
-  "sessions.preview": ({ params, respond }) => {
+  "sessions.preview": (opts) => {
+    const { params, respond } = opts;
     if (!validateSessionsPreviewParams(params)) {
       respond(
         false,
@@ -81,11 +115,18 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       return;
     }
     const p = params;
+    const tenantId = getTenantId(opts);
     const keysRaw = Array.isArray(p.keys) ? p.keys : [];
-    const keys = keysRaw
+    let keys = keysRaw
       .map((key) => String(key ?? "").trim())
       .filter(Boolean)
       .slice(0, 64);
+
+    // For tenant requests, filter to only allow tenant's own session keys
+    if (tenantId) {
+      keys = keys.filter((key) => sessionKeyBelongsToTenant(key, tenantId));
+    }
+
     const limit =
       typeof p.limit === "number" && Number.isFinite(p.limit) ? Math.max(1, p.limit) : 12;
     const maxChars =

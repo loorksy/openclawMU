@@ -9,12 +9,15 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { timingSafeEqual } from "node:crypto";
+import os from "node:os";
 import { loadConfig } from "../config/config.js";
 import {
   backupTenantToS3,
   restoreTenantFromS3,
   listTenantBackups,
   deleteTenantBackup,
+  listTenants,
   getTenant,
   createTenant,
   removeTenant,
@@ -27,6 +30,7 @@ const INTERNAL_API_PREFIX = "/internal/v1";
 
 /**
  * Validates the control plane token from request headers.
+ * Uses timing-safe comparison to prevent timing attacks.
  */
 function validateControlPlaneToken(req: IncomingMessage): boolean {
   const config = loadConfig();
@@ -37,8 +41,14 @@ function validateControlPlaneToken(req: IncomingMessage): boolean {
     return false;
   }
 
-  const providedToken = getHeader(req, "x-control-plane-token");
-  return providedToken === expectedToken;
+  const providedToken = getHeader(req, "x-control-plane-token") ?? "";
+
+  // Use timing-safe comparison to prevent timing attacks
+  if (providedToken.length !== expectedToken.length) {
+    return false;
+  }
+
+  return timingSafeEqual(Buffer.from(providedToken), Buffer.from(expectedToken));
 }
 
 /**
@@ -120,8 +130,6 @@ function extractBackupConfig(
     endpoint: (body.endpoint as string) || query.get("endpoint") || undefined,
     region: (body.region as string) || query.get("region") || undefined,
     prefix: (body.prefix as string) || query.get("prefix") || undefined,
-    accessKeyId: (body.accessKeyId as string) || query.get("accessKeyId") || undefined,
-    secretAccessKey: (body.secretAccessKey as string) || query.get("secretAccessKey") || undefined,
   };
 }
 
@@ -315,11 +323,28 @@ async function handleTenantCrud(
  */
 function handleStatus(res: ServerResponse): void {
   const config = loadConfig();
+  const totalMemoryBytes = os.totalmem();
+  const freeMemoryBytes = os.freemem();
+  const memoryUsedBytes = Math.max(0, totalMemoryBytes - freeMemoryBytes);
+  const cpuCount = Math.max(1, os.cpus().length);
+  const load1m = os.loadavg()[0] ?? 0;
+  const tenantsCount = listTenants().length;
   sendJson(res, 200, {
     version: process.env.npm_package_version || "unknown",
     status: "ok",
     capabilities: ["backup", "restore"],
     multiTenant: config.gateway?.multiTenant ?? false,
+    tenantsCount,
+    metrics: {
+      cpuCount,
+      load1m,
+      memoryTotalBytes: totalMemoryBytes,
+      memoryFreeBytes: freeMemoryBytes,
+      memoryUsedBytes,
+      uptimeSeconds: Math.floor(os.uptime()),
+      tenantsCount,
+      reportedAt: new Date().toISOString(),
+    },
   });
 }
 

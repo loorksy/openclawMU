@@ -3,12 +3,22 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { CronStoreFile } from "./types.js";
+import { resolveTenantCronStorePath } from "../tenants/paths.js";
 import { CONFIG_DIR } from "../utils.js";
 
 export const DEFAULT_CRON_DIR = path.join(CONFIG_DIR, "cron");
 export const DEFAULT_CRON_STORE_PATH = path.join(DEFAULT_CRON_DIR, "jobs.json");
 
-export function resolveCronStorePath(storePath?: string) {
+/**
+ * Resolves the cron store path.
+ * If tenantId is provided, returns the tenant-specific cron store path.
+ * Otherwise falls back to storePath or the default global path.
+ */
+export function resolveCronStorePath(storePath?: string, tenantId?: string) {
+  // Tenant-specific path takes precedence
+  if (tenantId) {
+    return resolveTenantCronStorePath(tenantId);
+  }
   if (storePath?.trim()) {
     const raw = storePath.trim();
     if (raw.startsWith("~")) {

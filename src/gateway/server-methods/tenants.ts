@@ -170,15 +170,11 @@ export const tenantMethods: GatewayRequestHandlers = {
 
   /**
    * Deletes a tenant.
-   * Requires admin scope.
+   * Admin can delete any tenant. Tenant can delete themselves (self-delete).
+   * Self-delete always deletes data. Admin can control via deleteData param.
    */
   "tenants.delete": async (opts) => {
-    if (!hasAdminScope(opts)) {
-      opts.respond(false, undefined, errorShape(ErrorCodes.UNAUTHORIZED, "Admin access required"));
-      return;
-    }
-
-    const params = opts.params as { tenantId?: string; deleteData?: boolean };
+    const params = opts.params as { tenantId?: string; deleteData?: boolean; confirm?: boolean };
     const tenantId = params.tenantId;
 
     if (!tenantId || typeof tenantId !== "string") {
@@ -190,8 +186,31 @@ export const tenantMethods: GatewayRequestHandlers = {
       return;
     }
 
+    // Check if this is a self-delete by a tenant token
+    const isSelfDelete = opts.client?.tenantId === tenantId && !hasAdminScope(opts);
+
+    if (!canAccessTenant(opts, tenantId)) {
+      opts.respond(false, undefined, errorShape(ErrorCodes.UNAUTHORIZED, "Access denied"));
+      return;
+    }
+
+    // For self-delete, require explicit confirmation
+    if (isSelfDelete && params.confirm !== true) {
+      opts.respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          "Self-delete requires confirm: true to prevent accidental deletion",
+        ),
+      );
+      return;
+    }
+
     try {
-      removeTenant(tenantId, { deleteData: params.deleteData });
+      // Self-delete always deletes data. Admin can control via deleteData param.
+      const deleteData = isSelfDelete ? true : params.deleteData;
+      removeTenant(tenantId, { deleteData });
       opts.respond(true, { deleted: true, tenantId });
     } catch (err) {
       opts.respond(
@@ -287,8 +306,6 @@ export const tenantMethods: GatewayRequestHandlers = {
       endpoint?: string;
       region?: string;
       prefix?: string;
-      accessKeyId?: string;
-      secretAccessKey?: string;
     };
     const tenantId = params.tenantId;
 
@@ -316,8 +333,6 @@ export const tenantMethods: GatewayRequestHandlers = {
       endpoint: params.endpoint,
       region: params.region,
       prefix: params.prefix,
-      accessKeyId: params.accessKeyId,
-      secretAccessKey: params.secretAccessKey,
     };
 
     try {
@@ -339,22 +354,15 @@ export const tenantMethods: GatewayRequestHandlers = {
 
   /**
    * Restores a tenant from S3 backup.
-   * Requires admin scope.
+   * Admin can restore any tenant, tenant can restore own.
    */
   "tenants.restore": async (opts) => {
-    if (!hasAdminScope(opts)) {
-      opts.respond(false, undefined, errorShape(ErrorCodes.UNAUTHORIZED, "Admin access required"));
-      return;
-    }
-
     const params = opts.params as {
       tenantId?: string;
       key?: string;
       bucket?: string;
       endpoint?: string;
       region?: string;
-      accessKeyId?: string;
-      secretAccessKey?: string;
       createIfMissing?: boolean;
     };
     const tenantId = params.tenantId;
@@ -365,6 +373,11 @@ export const tenantMethods: GatewayRequestHandlers = {
         undefined,
         errorShape(ErrorCodes.INVALID_REQUEST, "tenantId is required"),
       );
+      return;
+    }
+
+    if (!canAccessTenant(opts, tenantId)) {
+      opts.respond(false, undefined, errorShape(ErrorCodes.UNAUTHORIZED, "Access denied"));
       return;
     }
 
@@ -382,16 +395,18 @@ export const tenantMethods: GatewayRequestHandlers = {
       bucket: params.bucket,
       endpoint: params.endpoint,
       region: params.region,
-      accessKeyId: params.accessKeyId,
-      secretAccessKey: params.secretAccessKey,
     };
+
+    // Tenants can only restore their own existing tenant, not create new ones.
+    // Only admin can use createIfMissing.
+    const createIfMissing = hasAdminScope(opts) ? params.createIfMissing : false;
 
     try {
       const result = await restoreTenantFromS3({
         tenantId,
         config,
         key: params.key,
-        createIfMissing: params.createIfMissing,
+        createIfMissing,
       });
       opts.respond(true, {
         tenantId: result.tenantId,
@@ -418,8 +433,6 @@ export const tenantMethods: GatewayRequestHandlers = {
       endpoint?: string;
       region?: string;
       prefix?: string;
-      accessKeyId?: string;
-      secretAccessKey?: string;
     };
     const tenantId = params.tenantId;
 
@@ -447,8 +460,6 @@ export const tenantMethods: GatewayRequestHandlers = {
       endpoint: params.endpoint,
       region: params.region,
       prefix: params.prefix,
-      accessKeyId: params.accessKeyId,
-      secretAccessKey: params.secretAccessKey,
     };
 
     try {
@@ -478,8 +489,6 @@ export const tenantMethods: GatewayRequestHandlers = {
       bucket?: string;
       endpoint?: string;
       region?: string;
-      accessKeyId?: string;
-      secretAccessKey?: string;
     };
 
     if (!params.key) {
@@ -496,8 +505,6 @@ export const tenantMethods: GatewayRequestHandlers = {
       bucket: params.bucket,
       endpoint: params.endpoint,
       region: params.region,
-      accessKeyId: params.accessKeyId,
-      secretAccessKey: params.secretAccessKey,
     };
 
     try {

@@ -1,4 +1,4 @@
-import type { GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./types.js";
 import {
   approveDevicePairing,
   listDevicePairing,
@@ -8,6 +8,7 @@ import {
   rotateDeviceToken,
   summarizeDeviceTokens,
 } from "../../infra/device-pairing.js";
+import { resolveTenantStateDir } from "../../tenants/paths.js";
 import {
   ErrorCodes,
   errorShape,
@@ -18,6 +19,22 @@ import {
   validateDeviceTokenRevokeParams,
   validateDeviceTokenRotateParams,
 } from "../protocol/index.js";
+
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Get the base directory for device pairing storage.
+ * For tenants, this is the tenant's state directory.
+ */
+function getBaseDir(opts: GatewayRequestHandlerOptions): string | undefined {
+  const tenantId = getTenantId(opts);
+  return tenantId ? resolveTenantStateDir(tenantId) : undefined;
+}
 
 function redactPairedDevice(
   device: { tokens?: Record<string, DeviceAuthToken> } & Record<string, unknown>,
@@ -30,7 +47,8 @@ function redactPairedDevice(
 }
 
 export const deviceHandlers: GatewayRequestHandlers = {
-  "device.pair.list": async ({ params, respond }) => {
+  "device.pair.list": async (opts) => {
+    const { params, respond } = opts;
     if (!validateDevicePairListParams(params)) {
       respond(
         false,
@@ -44,7 +62,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const list = await listDevicePairing();
+    const baseDir = getBaseDir(opts);
+    const list = await listDevicePairing(baseDir);
     respond(
       true,
       {
@@ -54,7 +73,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       undefined,
     );
   },
-  "device.pair.approve": async ({ params, respond, context }) => {
+  "device.pair.approve": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateDevicePairApproveParams(params)) {
       respond(
         false,
@@ -69,7 +89,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       return;
     }
     const { requestId } = params as { requestId: string };
-    const approved = await approveDevicePairing(requestId);
+    const baseDir = getBaseDir(opts);
+    const approved = await approveDevicePairing(requestId, baseDir);
     if (!approved) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown requestId"));
       return;
@@ -89,7 +110,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
     );
     respond(true, { requestId, device: redactPairedDevice(approved.device) }, undefined);
   },
-  "device.pair.reject": async ({ params, respond, context }) => {
+  "device.pair.reject": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateDevicePairRejectParams(params)) {
       respond(
         false,
@@ -104,7 +126,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       return;
     }
     const { requestId } = params as { requestId: string };
-    const rejected = await rejectDevicePairing(requestId);
+    const baseDir = getBaseDir(opts);
+    const rejected = await rejectDevicePairing(requestId, baseDir);
     if (!rejected) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown requestId"));
       return;
@@ -121,7 +144,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
     );
     respond(true, rejected, undefined);
   },
-  "device.token.rotate": async ({ params, respond, context }) => {
+  "device.token.rotate": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateDeviceTokenRotateParams(params)) {
       respond(
         false,
@@ -140,7 +164,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       role: string;
       scopes?: string[];
     };
-    const entry = await rotateDeviceToken({ deviceId, role, scopes });
+    const baseDir = getBaseDir(opts);
+    const entry = await rotateDeviceToken({ deviceId, role, scopes, baseDir });
     if (!entry) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown deviceId/role"));
       return;
@@ -160,7 +185,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       undefined,
     );
   },
-  "device.token.revoke": async ({ params, respond, context }) => {
+  "device.token.revoke": async (opts) => {
+    const { params, respond, context } = opts;
     if (!validateDeviceTokenRevokeParams(params)) {
       respond(
         false,
@@ -175,7 +201,8 @@ export const deviceHandlers: GatewayRequestHandlers = {
       return;
     }
     const { deviceId, role } = params as { deviceId: string; role: string };
-    const entry = await revokeDeviceToken({ deviceId, role });
+    const baseDir = getBaseDir(opts);
+    const entry = await revokeDeviceToken({ deviceId, role, baseDir });
     if (!entry) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown deviceId/role"));
       return;

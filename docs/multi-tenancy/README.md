@@ -201,11 +201,11 @@ All backup methods accept S3 configuration:
   bucket: "my-backups",           // Required
   endpoint: "https://minio.local", // For S3-compatible
   region: "us-east-1",
-  prefix: "openclaw-backups",
-  accessKeyId: "...",             // Or use environment
-  secretAccessKey: "..."
+  prefix: "openclaw-backups"
 }
 ```
+
+S3 credentials are resolved server-side (for example via IAM role, IRSA, or server environment).
 
 ### CLI Usage
 

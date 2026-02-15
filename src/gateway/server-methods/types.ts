@@ -12,10 +12,22 @@ import type { DedupeEntry } from "../server-shared.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 
+/**
+ * Tenant context for multi-tenant requests.
+ * Provides resolved paths and configuration for tenant-scoped operations.
+ */
+export type TenantContext = {
+  tenantId: string;
+  stateDir: string;
+  configPath: string;
+};
+
 export type GatewayClient = {
   connect: ConnectParams;
   connId?: string;
   tenantId?: string;
+  /** Full tenant context with resolved paths. Populated from tenantId. */
+  tenantContext?: TenantContext;
 };
 
 export type RespondFn = (

@@ -17,12 +17,13 @@ function makeClient(params: {
 }
 
 describe("hasAuthorizedWsClientForIp", () => {
-  it("does not treat tenant-scoped websocket clients as canvas-authorized", () => {
+  it("allows tenant-scoped websocket clients for canvas access", () => {
     const clients = new Set<GatewayWsClient>([
       makeClient({ connId: "tenant-1", clientIp: "203.0.113.10", tenantId: "tenant-a" }),
     ]);
 
-    expect(hasAuthorizedWsClientForIp(clients, "203.0.113.10")).toBe(false);
+    // Tenants are now allowed canvas access (resource isolation is a separate concern)
+    expect(hasAuthorizedWsClientForIp(clients, "203.0.113.10")).toBe(true);
   });
 
   it("accepts non-tenant websocket clients for canvas IP fallback", () => {

@@ -3,7 +3,11 @@ import type { WebSocket } from "ws";
 import os from "node:os";
 import type { createSubsystemLogger } from "../../../logging/subsystem.js";
 import type { ResolvedGatewayAuth } from "../../auth.js";
-import type { GatewayRequestContext, GatewayRequestHandlers } from "../../server-methods/types.js";
+import type {
+  GatewayRequestContext,
+  GatewayRequestHandlers,
+  TenantContext,
+} from "../../server-methods/types.js";
 import type { GatewayWsClient } from "../ws-types.js";
 import { loadConfig } from "../../../config/config.js";
 import {
@@ -24,6 +28,7 @@ import { recordRemoteNodeInfo, refreshRemoteNodeBins } from "../../../infra/skil
 import { upsertPresence } from "../../../infra/system-presence.js";
 import { loadVoiceWakeConfig } from "../../../infra/voicewake.js";
 import { rawDataToString } from "../../../infra/ws.js";
+import { resolveTenantStateDir, resolveTenantConfigPath } from "../../../tenants/paths.js";
 import { isGatewayCliClient, isWebchatClient } from "../../../utils/message-channel.js";
 import { authorizeGatewayConnect, isLocalDirectRequest } from "../../auth.js";
 import { buildDeviceAuthPayload } from "../../device-auth.js";
@@ -909,6 +914,17 @@ export function attachGatewayWsMessageHandler(params: {
         };
 
         clearHandshakeTimer();
+
+        // Build tenant context if this is a tenant-authenticated connection.
+        let tenantContext: TenantContext | undefined;
+        if (authResult.tenantId) {
+          tenantContext = {
+            tenantId: authResult.tenantId,
+            stateDir: resolveTenantStateDir(authResult.tenantId),
+            configPath: resolveTenantConfigPath(authResult.tenantId),
+          };
+        }
+
         const nextClient: GatewayWsClient = {
           socket,
           connect: connectParams,
@@ -916,6 +932,7 @@ export function attachGatewayWsMessageHandler(params: {
           presenceKey,
           clientIp: reportedClientIp,
           tenantId: authResult.tenantId,
+          tenantContext,
         };
         setClient(nextClient);
         setHandshakeState("connected");

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./types.js";
 import {
   listAgentIds,
   resolveAgentDir,
@@ -25,7 +25,7 @@ import {
   listAgentEntries,
   pruneAgentConfig,
 } from "../../commands/agents.config.js";
-import { loadConfig, writeConfigFile } from "../../config/config.js";
+import { loadConfig, writeConfigFile, loadConfigForTenant } from "../../config/config.js";
 import { resolveSessionTranscriptsDirForAgent } from "../../config/sessions/paths.js";
 import { DEFAULT_AGENT_ID, normalizeAgentId } from "../../routing/session-key.js";
 import { resolveUserPath } from "../../utils.js";
@@ -42,6 +42,21 @@ import {
   validateAgentsUpdateParams,
 } from "../protocol/index.js";
 import { listAgentsForGateway } from "../session-utils.js";
+
+/**
+ * Get the tenant ID from the request, if present.
+ */
+function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {
+  return opts.client?.tenantId;
+}
+
+/**
+ * Load config for the request context (tenant or global).
+ */
+function loadConfigForRequest(opts: GatewayRequestHandlerOptions) {
+  const tenantId = getTenantId(opts);
+  return tenantId ? loadConfigForTenant(tenantId) : loadConfig();
+}
 
 const BOOTSTRAP_FILE_NAMES = [
   DEFAULT_AGENTS_FILENAME,
@@ -165,7 +180,8 @@ async function moveToTrashBestEffort(pathname: string): Promise<void> {
 }
 
 export const agentsHandlers: GatewayRequestHandlers = {
-  "agents.list": ({ params, respond }) => {
+  "agents.list": (opts) => {
+    const { params, respond } = opts;
     if (!validateAgentsListParams(params)) {
       respond(
         false,
@@ -178,7 +194,8 @@ export const agentsHandlers: GatewayRequestHandlers = {
       return;
     }
 
-    const cfg = loadConfig();
+    // Use tenant-specific config if this is a tenant request
+    const cfg = loadConfigForRequest(opts);
     const result = listAgentsForGateway(cfg);
     respond(true, result, undefined);
   },

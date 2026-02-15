@@ -181,3 +181,23 @@ export function resolveTenantRateLimitPath(
 export function resolveSystemMetricsDir(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(resolveStateDir(env), "metrics");
 }
+
+/**
+ * Resolves the cron jobs directory for a tenant.
+ */
+export function resolveTenantCronDir(
+  tenantId: TenantId,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantStateDir(tenantId, env), "cron");
+}
+
+/**
+ * Resolves the cron jobs store path for a tenant.
+ */
+export function resolveTenantCronStorePath(
+  tenantId: TenantId,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantCronDir(tenantId, env), "jobs.json");
+}
