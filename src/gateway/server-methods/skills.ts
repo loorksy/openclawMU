@@ -8,11 +8,13 @@ import {
 import { installSkill } from "../../agents/skills-install.js";
 import { buildWorkspaceSkillStatus } from "../../agents/skills-status.js";
 import { loadWorkspaceSkillEntries, type SkillEntry } from "../../agents/skills.js";
+import { listAgentWorkspaceDirs } from "../../agents/workspace-dirs.js";
 import { loadConfig, writeConfigFile, loadConfigForTenant } from "../../config/config.js";
 import { updateTenantConfig } from "../../config/tenant-config.js";
 import { getRemoteSkillEligibility } from "../../infra/skills-remote.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
 import { resolveTenantWorkspace } from "../../tenants/paths.js";
+import { normalizeSecretInput } from "../../utils/normalize-secret-input.js";
 import {
   ErrorCodes,
   errorShape,
@@ -48,23 +50,16 @@ function resolveTenantAgentWorkspaceDir(tenantId: string, agentId: string): stri
   return resolveTenantWorkspace(tenantId);
 }
 
-function listWorkspaceDirs(cfg: OpenClawConfig, tenantId?: string): string[] {
-  const dirs = new Set<string>();
+/**
+ * List workspace directories, with tenant awareness.
+ * Uses upstream's listAgentWorkspaceDirs for non-tenant requests.
+ */
+function listWorkspaceDirsWithTenant(cfg: OpenClawConfig, tenantId?: string): string[] {
   if (tenantId) {
     // For tenants, use the single tenant workspace
-    dirs.add(resolveTenantWorkspace(tenantId));
-  } else {
-    const list = cfg.agents?.list;
-    if (Array.isArray(list)) {
-      for (const entry of list) {
-        if (entry && typeof entry === "object" && typeof entry.id === "string") {
-          dirs.add(resolveAgentWorkspaceDir(cfg, entry.id));
-        }
-      }
-    }
-    dirs.add(resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg)));
+    return [resolveTenantWorkspace(tenantId)];
   }
-  return [...dirs];
+  return listAgentWorkspaceDirs(cfg);
 }
 
 function collectSkillBins(entries: SkillEntry[]): string[] {
@@ -151,7 +146,7 @@ export const skillsHandlers: GatewayRequestHandlers = {
     }
     const tenantId = getTenantId(opts);
     const cfg = loadConfigForRequest(opts);
-    const workspaceDirs = listWorkspaceDirs(cfg, tenantId);
+    const workspaceDirs = listWorkspaceDirsWithTenant(cfg, tenantId);
     const bins = new Set<string>();
     for (const workspaceDir of workspaceDirs) {
       const entries = loadWorkspaceSkillEntries(workspaceDir, { config: cfg });
@@ -225,7 +220,7 @@ export const skillsHandlers: GatewayRequestHandlers = {
       current.enabled = p.enabled;
     }
     if (typeof p.apiKey === "string") {
-      const trimmed = p.apiKey.trim();
+      const trimmed = normalizeSecretInput(p.apiKey);
       if (trimmed) {
         current.apiKey = trimmed;
       } else {
