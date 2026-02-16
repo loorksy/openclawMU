@@ -17,7 +17,6 @@ import { createInternalHookEvent, triggerInternalHook } from "../../hooks/intern
 import {
   normalizeAgentId,
   parseAgentSessionKey,
-  isTenantSessionKey,
   extractTenantIdFromSessionKey,
 } from "../../routing/session-key.js";
 import {

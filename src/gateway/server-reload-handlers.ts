@@ -17,12 +17,12 @@ import { setCommandLaneConcurrency, getTotalQueueSize } from "../process/command
 import { CommandLane } from "../process/lanes.js";
 import { resolveHooksConfig } from "./hooks.js";
 import { startBrowserControlServerIfEnabled } from "./server-browser.js";
-import { buildGatewayCronService, type GatewayCronState } from "./server-cron.js";
+import { buildMultiTenantCronManager, type GatewayMultiTenantCronState } from "./server-cron.js";
 
 type GatewayHotReloadState = {
   hooksConfig: ReturnType<typeof resolveHooksConfig>;
   heartbeatRunner: HeartbeatRunner;
-  cronState: GatewayCronState;
+  cronState: GatewayMultiTenantCronState;
   browserControl: Awaited<ReturnType<typeof startBrowserControlServerIfEnabled>> | null;
 };
 
@@ -66,14 +66,14 @@ export function createGatewayReloadHandlers(params: {
     resetDirectoryCache();
 
     if (plan.restartCron) {
-      state.cronState.cron.stop();
-      nextState.cronState = buildGatewayCronService({
+      state.cronState.manager.stopAll();
+      nextState.cronState = buildMultiTenantCronManager({
         cfg: nextConfig,
         deps: params.deps,
         broadcast: params.broadcast,
       });
-      void nextState.cronState.cron
-        .start()
+      void nextState.cronState.manager
+        .startAll()
         .catch((err) => params.logCron.error(`failed to start: ${String(err)}`));
     }
 

@@ -4,6 +4,10 @@ import { loadConfig } from "../config/config.js";
 import { resolveAgentMainSessionKey } from "../config/sessions.js";
 import { resolveStorePath } from "../config/sessions/paths.js";
 import { runCronIsolatedAgentTurn } from "../cron/isolated-agent.js";
+import {
+  createMultiTenantCronManager,
+  type MultiTenantCronManager,
+} from "../cron/multi-tenant-manager.js";
 import { appendCronRunLog, resolveCronRunLogPath } from "../cron/run-log.js";
 import { CronService } from "../cron/service.js";
 import { resolveCronStorePath } from "../cron/store.js";
@@ -16,6 +20,16 @@ import { defaultRuntime } from "../runtime.js";
 
 export type GatewayCronState = {
   cron: CronService;
+  storePath: string;
+  cronEnabled: boolean;
+};
+
+/**
+ * OPENCLAWMU: Extended cron state with multi-tenant support.
+ */
+export type GatewayMultiTenantCronState = {
+  manager: MultiTenantCronManager;
+  cron: CronService; // Alias for global service (backward compat)
   storePath: string;
   cronEnabled: boolean;
 };
@@ -117,4 +131,33 @@ export function buildGatewayCronService(params: {
   });
 
   return { cron, storePath, cronEnabled };
+}
+
+/**
+ * OPENCLAWMU: Build a multi-tenant cron manager.
+ * This wraps the global CronService and manages per-tenant services.
+ */
+export function buildMultiTenantCronManager(params: {
+  cfg: ReturnType<typeof loadConfig>;
+  deps: CliDeps;
+  broadcast: (event: string, payload: unknown, opts?: { dropIfSlow?: boolean }) => void;
+}): GatewayMultiTenantCronState {
+  // Build the global service first
+  const { cron: globalService, storePath, cronEnabled } = buildGatewayCronService(params);
+
+  // Create the multi-tenant manager
+  const manager = createMultiTenantCronManager({
+    globalService,
+    globalStorePath: storePath,
+    cronEnabled,
+    deps: params.deps,
+    broadcast: params.broadcast,
+  });
+
+  return {
+    manager,
+    cron: globalService, // Backward compat alias
+    storePath,
+    cronEnabled,
+  };
 }

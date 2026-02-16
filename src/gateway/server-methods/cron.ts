@@ -164,16 +164,25 @@ export const cronHandlers: GatewayRequestHandlers = {
     }
     const tenantId = getTenantId(opts);
     if (tenantId) {
-      // Tenant-specific: return basic status (no scheduler)
+      // OPENCLAWMU: Use tenant's CronService for status if available
+      if (context.cronManager) {
+        const tenantService = context.cronManager.getTenantService(tenantId);
+        if (tenantService) {
+          const status = await tenantService.status();
+          respond(true, status, undefined);
+          return;
+        }
+      }
+      // Fallback: load from store if no service started yet
       const store = await loadTenantCronJobs(tenantId);
       respond(
         true,
         {
-          enabled: false, // Tenants don't have automatic scheduling
+          enabled: context.cronManager?.cronEnabled ?? false,
           schedulerRunning: false,
           jobCount: store.jobs.length,
           enabledJobCount: store.jobs.filter((j) => j.enabled).length,
-          note: "Tenant cron jobs require manual execution via cron.run",
+          note: "Tenant cron scheduler will start when jobs are added",
         },
         undefined,
       );
@@ -350,16 +359,22 @@ export const cronHandlers: GatewayRequestHandlers = {
     }
     const tenantId = getTenantId(opts);
     if (tenantId) {
-      // Tenant-specific: manual execution is not supported (no runtime)
-      // Tenants can define jobs but cannot execute them without admin help
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          "cron.run not available for tenant tokens - jobs must be executed by admin",
-        ),
-      );
+      // OPENCLAWMU: Use tenant's CronService for execution
+      if (!context.cronManager) {
+        respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "cron manager not available"));
+        return;
+      }
+      try {
+        const tenantService = await context.cronManager.ensureTenantService(tenantId);
+        const result = await tenantService.run(jobId, p.mode ?? "force");
+        respond(true, result, undefined);
+      } catch (err) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.UNAVAILABLE, `cron.run failed: ${String(err)}`),
+        );
+      }
       return;
     }
     const result = await context.cron.run(jobId, p.mode ?? "force");

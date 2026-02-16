@@ -21,8 +21,6 @@ import type { GatewayRequestHandlers, GatewayRequestHandlerOptions } from "./typ
 import {
   collectSystemMetrics,
   getRecentMetrics,
-  loadCurrentSnapshot,
-  type SystemResourceSnapshot,
   type TenantResourceSummary,
 } from "../../infra/system-metrics.js";
 import { listTenants, getTenant, updateTenant } from "../../tenants/registry.js";

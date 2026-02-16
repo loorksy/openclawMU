@@ -55,7 +55,7 @@ export async function tenantsCreateCommand(
 ): Promise<void> {
   if (!isValidTenantId(tenantId)) {
     runtime.error(
-      `Invalid tenant ID: "${tenantId}"\n` +
+      `Invalid tenant ID: "${String(tenantId)}"\n` +
         "Tenant IDs must:\n" +
         "  - Start with a lowercase letter or number\n" +
         "  - Contain only lowercase letters, numbers, hyphens, and underscores\n" +

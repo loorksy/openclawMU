@@ -1,4 +1,3 @@
-import os from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import type { WindowsAclEntry, WindowsAclSummary } from "./windows-acl.js";
 

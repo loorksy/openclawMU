@@ -1,6 +1,7 @@
 import type { ModelCatalogEntry } from "../../agents/model-catalog.js";
 import type { createDefaultDeps } from "../../cli/deps.js";
 import type { HealthSummary } from "../../commands/health.js";
+import type { MultiTenantCronManager } from "../../cron/multi-tenant-manager.js";
 import type { CronService } from "../../cron/service.js";
 import type { createSubsystemLogger } from "../../logging/subsystem.js";
 import type { WizardSession } from "../../wizard/session.js";
@@ -43,6 +44,8 @@ export type GatewayRequestContext = {
   deps: ReturnType<typeof createDefaultDeps>;
   cron: CronService;
   cronStorePath: string;
+  /** OPENCLAWMU: Multi-tenant cron manager for per-tenant scheduling */
+  cronManager?: MultiTenantCronManager;
   execApprovalManager?: ExecApprovalManager;
   loadGatewayModelCatalog: () => Promise<ModelCatalogEntry[]>;
   getHealthCache: () => HealthSummary | null;

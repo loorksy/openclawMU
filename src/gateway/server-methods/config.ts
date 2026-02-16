@@ -43,13 +43,6 @@ import {
 } from "../protocol/index.js";
 
 /**
- * Check if the request is from a tenant token.
- */
-function isTenantRequest(opts: GatewayRequestHandlerOptions): boolean {
-  return !!opts.client?.tenantId;
-}
-
-/**
  * Get the tenant ID from the request, if present.
  */
 function getTenantId(opts: GatewayRequestHandlerOptions): string | undefined {

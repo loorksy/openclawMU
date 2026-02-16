@@ -105,7 +105,7 @@ function parseInternalPath(pathname: string): {
         resource: "tenants",
         tenantId,
         action: "backups",
-        backupKey: decodeURIComponent(backupsKeyMatch[1]!),
+        backupKey: decodeURIComponent(backupsKeyMatch[1]),
       };
     }
   }

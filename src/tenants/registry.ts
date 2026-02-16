@@ -128,7 +128,7 @@ export function createTenant(
 ): CreateTenantResult {
   if (!isValidTenantId(tenantId)) {
     throw new Error(
-      `Invalid tenant ID: "${tenantId}". Must match pattern: lowercase alphanumeric, hyphens, underscores, 1-32 chars.`,
+      `Invalid tenant ID: "${String(tenantId)}". Must match pattern: lowercase alphanumeric, hyphens, underscores, 1-32 chars.`,
     );
   }
 

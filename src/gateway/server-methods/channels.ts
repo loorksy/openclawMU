@@ -86,6 +86,78 @@ export async function logoutChannelAccount(params: {
 }
 
 export const channelsHandlers: GatewayRequestHandlers = {
+  "channels.start": async (opts) => {
+    const { params, respond, context } = opts;
+    const rawChannel = (params as { channel?: unknown }).channel;
+    const channelId = typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : null;
+    if (!channelId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid channels.start: missing channel"),
+      );
+      return;
+    }
+    const plugin = getChannelPlugin(channelId);
+    if (!plugin) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `unknown channel: ${channelId}`),
+      );
+      return;
+    }
+    const accountIdRaw = (params as { accountId?: unknown }).accountId;
+    const accountId = typeof accountIdRaw === "string" ? accountIdRaw.trim() : undefined;
+    const cfg = loadConfigForRequest(opts);
+    const resolvedAccountId =
+      accountId ||
+      plugin.config.defaultAccountId?.(cfg) ||
+      plugin.config.listAccountIds(cfg)[0] ||
+      DEFAULT_ACCOUNT_ID;
+    try {
+      await context.startChannel(channelId, resolvedAccountId);
+      respond(true, { channel: channelId, accountId: resolvedAccountId, started: true }, undefined);
+    } catch (err) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
+    }
+  },
+  "channels.stop": async (opts) => {
+    const { params, respond, context } = opts;
+    const rawChannel = (params as { channel?: unknown }).channel;
+    const channelId = typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : null;
+    if (!channelId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid channels.stop: missing channel"),
+      );
+      return;
+    }
+    const plugin = getChannelPlugin(channelId);
+    if (!plugin) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `unknown channel: ${channelId}`),
+      );
+      return;
+    }
+    const accountIdRaw = (params as { accountId?: unknown }).accountId;
+    const accountId = typeof accountIdRaw === "string" ? accountIdRaw.trim() : undefined;
+    const cfg = loadConfigForRequest(opts);
+    const resolvedAccountId =
+      accountId ||
+      plugin.config.defaultAccountId?.(cfg) ||
+      plugin.config.listAccountIds(cfg)[0] ||
+      DEFAULT_ACCOUNT_ID;
+    try {
+      await context.stopChannel(channelId, resolvedAccountId);
+      respond(true, { channel: channelId, accountId: resolvedAccountId, stopped: true }, undefined);
+    } catch (err) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
+    }
+  },
   "channels.status": async (opts) => {
     const { params, respond, context } = opts;
     if (!validateChannelsStatusParams(params)) {
@@ -261,19 +333,6 @@ export const channelsHandlers: GatewayRequestHandlers = {
   },
   "channels.logout": async (opts) => {
     const { params, respond, context } = opts;
-    // Block tenant access - channel logout requires admin credentials
-    const tenantId = getTenantId(opts);
-    if (tenantId) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          "channels.logout not available for tenant tokens - requires admin credentials",
-        ),
-      );
-      return;
-    }
     if (!validateChannelsLogoutParams(params)) {
       respond(
         false,
@@ -306,20 +365,29 @@ export const channelsHandlers: GatewayRequestHandlers = {
     }
     const accountIdRaw = (params as { accountId?: unknown }).accountId;
     const accountId = typeof accountIdRaw === "string" ? accountIdRaw.trim() : undefined;
-    const snapshot = await readConfigFileSnapshot();
-    if (!snapshot.valid) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "config invalid; fix it before logging out"),
-      );
-      return;
+    const tenantId = getTenantId(opts);
+    let cfg: OpenClawConfig;
+    if (tenantId) {
+      // Tenant: use tenant config (always considered valid)
+      cfg = loadConfigForRequest(opts);
+    } else {
+      // Global: validate config file first
+      const snapshot = await readConfigFileSnapshot();
+      if (!snapshot.valid) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, "config invalid; fix it before logging out"),
+        );
+        return;
+      }
+      cfg = snapshot.config ?? {};
     }
     try {
       const payload = await logoutChannelAccount({
         channelId,
         accountId,
-        cfg: snapshot.config ?? {},
+        cfg,
         context,
         plugin,
       });

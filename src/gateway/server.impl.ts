@@ -54,7 +54,7 @@ import { NodeRegistry } from "./node-registry.js";
 import { createChannelManager } from "./server-channels.js";
 import { createAgentEventHandler } from "./server-chat.js";
 import { createGatewayCloseHandler } from "./server-close.js";
-import { buildGatewayCronService } from "./server-cron.js";
+import { buildMultiTenantCronManager } from "./server-cron.js";
 import { startGatewayDiscovery } from "./server-discovery-runtime.js";
 import { applyGatewayLaneConcurrency } from "./server-lanes.js";
 import { startGatewayMaintenanceTimers } from "./server-maintenance.js";
@@ -408,12 +408,13 @@ export async function startGatewayServer(
   const hasMobileNodeConnected = () => hasConnectedMobileNode(nodeRegistry);
   applyGatewayLaneConcurrency(cfgAtStart);
 
-  let cronState = buildGatewayCronService({
+  // OPENCLAWMU: Use multi-tenant cron manager for per-tenant scheduling
+  let cronState = buildMultiTenantCronManager({
     cfg: cfgAtStart,
     deps,
     broadcast,
   });
-  let { cron, storePath: cronStorePath } = cronState;
+  let { cron, storePath: cronStorePath, manager: cronManager } = cronState;
 
   const channelManager = createChannelManager({
     loadConfig,
@@ -517,7 +518,8 @@ export async function startGatewayServer(
     : startHeartbeatRunner({ cfg: cfgAtStart });
 
   if (!minimalTestGateway) {
-    void cron.start().catch((err) => logCron.error(`failed to start: ${String(err)}`));
+    // OPENCLAWMU: Start all cron services (global + tenant services)
+    void cronManager.startAll().catch((err) => logCron.error(`failed to start: ${String(err)}`));
   }
 
   // Recover pending outbound deliveries from previous crash/restart.
@@ -565,6 +567,7 @@ export async function startGatewayServer(
       deps,
       cron,
       cronStorePath,
+      cronManager, // OPENCLAWMU: Multi-tenant cron manager
       execApprovalManager,
       loadGatewayModelCatalog,
       getHealthCache,
@@ -667,6 +670,7 @@ export async function startGatewayServer(
             cronState = nextState.cronState;
             cron = cronState.cron;
             cronStorePath = cronState.storePath;
+            cronManager = cronState.manager;
             browserControl = nextState.browserControl;
           },
           startChannel,
@@ -734,6 +738,8 @@ export async function startGatewayServer(
       }
       skillsChangeUnsub();
       authRateLimiter?.dispose();
+      // OPENCLAWMU: Stop all cron services (global + tenant)
+      cronManager.stopAll();
       await close(opts);
     },
   };

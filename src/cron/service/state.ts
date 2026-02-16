@@ -62,6 +62,8 @@ export type CronServiceDeps = {
     delivered?: boolean;
   }>;
   onEvent?: (evt: CronEvent) => void;
+  /** OPENCLAWMU: Tenant ID for tenant-scoped cron services */
+  tenantId?: string;
 };
 
 export type CronServiceDepsInternal = Omit<CronServiceDeps, "nowMs"> & {

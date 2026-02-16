@@ -44,7 +44,7 @@ function loadConfigForRequest(opts: GatewayRequestHandlerOptions): OpenClawConfi
  * Resolve workspace directory for a tenant.
  * Tenants have a single workspace at {tenantDir}/workspace.
  */
-function resolveTenantAgentWorkspaceDir(tenantId: string, agentId: string): string {
+function resolveTenantAgentWorkspaceDir(tenantId: string, _agentId: string): string {
   // For tenants, all agents share the same workspace for simplicity
   // Skills are installed per-workspace, not per-agent
   return resolveTenantWorkspace(tenantId);

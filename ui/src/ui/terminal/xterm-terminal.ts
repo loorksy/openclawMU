@@ -11,7 +11,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import { LitElement, html, css, unsafeCSS, type PropertyValues } from "lit";
+import { LitElement, html, css, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 // xterm.js base styles (embedded for shadow DOM compatibility)
@@ -312,7 +312,7 @@ export class XtermTerminal extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     if (this.autoConnect) {
-      this.connect();
+      void this.connect();
     }
   }
 
@@ -409,29 +409,29 @@ export class XtermTerminal extends LitElement {
       const wsUrl = this.gatewayUrl.replace(/^http/, "ws");
       this.ws = new WebSocket(wsUrl);
 
-      this.ws.onopen = () => {
+      this.ws.addEventListener("open", () => {
         this.terminal?.writeln("\x1b[32mConnected to gateway\x1b[0m");
         this.sendConnect();
-      };
+      });
 
-      this.ws.onmessage = (event) => {
+      this.ws.addEventListener("message", (event) => {
         this.handleMessage(event.data);
-      };
+      });
 
-      this.ws.onerror = (error) => {
+      this.ws.addEventListener("error", (error) => {
         console.error("WebSocket error:", error);
         this.terminal?.writeln("\x1b[31mWebSocket error\x1b[0m");
         this.status = "disconnected";
-      };
+      });
 
-      this.ws.onclose = () => {
+      this.ws.addEventListener("close", () => {
         this.terminal?.writeln("\x1b[33mDisconnected from gateway\x1b[0m");
         this.status = "disconnected";
         this.terminalId = null;
         this.pid = null;
-      };
+      });
     } catch (error) {
-      this.terminal?.writeln(`\x1b[31mConnection error: ${error}\x1b[0m`);
+      this.terminal?.writeln(`\x1b[31mConnection error: ${String(error)}\x1b[0m`);
       this.status = "disconnected";
     }
   }
@@ -615,15 +615,15 @@ export class XtermTerminal extends LitElement {
           </div>
           <div class="terminal-actions">
             <button
-              @click=${this.connect}
+              @click=${() => this.connect()}
               ?disabled=${this.status === "connecting" || this.status === "connected"}
             >
               Connect
             </button>
-            <button @click=${this.disconnect} ?disabled=${this.status === "disconnected"}>
+            <button @click=${() => this.disconnect()} ?disabled=${this.status === "disconnected"}>
               Disconnect
             </button>
-            <button @click=${this.clear}>Clear</button>
+            <button @click=${() => this.clear()}>Clear</button>
           </div>
         </div>
         <div class="terminal-body"></div>

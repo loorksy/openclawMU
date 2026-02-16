@@ -28,25 +28,38 @@ const TENANT_ALLOWED_METHODS = new Set([
   "config.set",
   "config.patch",
   "config.schema",
-  // Agent management (read-only for now)
+  // Agent management (full CRUD for tenants)
   "agents.list",
+  "agents.create",
+  "agents.update",
+  "agents.delete",
+  "agents.files.list",
+  "agents.files.get",
+  "agents.files.set",
   // Session management
   "sessions.list",
   "sessions.preview",
-  // Cron management (tenant-isolated, no auto-scheduling)
+  // Cron management (tenant-isolated, with auto-scheduling)
   "cron.list",
   "cron.add",
   "cron.update",
   "cron.remove",
   "cron.status",
   "cron.runs",
+  "cron.run",
   // Skills management (tenant-isolated)
   "skills.status",
   "skills.bins",
   "skills.install",
   "skills.update",
-  // Channels (read-only for tenants - operations require admin credentials)
+  // Channels (tenant-isolated operations)
   "channels.status",
+  "channels.start",
+  "channels.stop",
+  "channels.logout",
+  // Voice wake (per-tenant)
+  "voicewake.get",
+  "voicewake.set",
   // Device pairing (tenant-isolated)
   "device.pair.list",
   "device.pair.approve",

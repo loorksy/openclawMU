@@ -201,3 +201,67 @@ export function resolveTenantCronStorePath(
 ): string {
   return path.join(resolveTenantCronDir(tenantId, env), "jobs.json");
 }
+
+/**
+ * Resolves the settings directory for a tenant.
+ */
+export function resolveTenantSettingsDir(
+  tenantId: TenantId,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantStateDir(tenantId, env), "settings");
+}
+
+/**
+ * Resolves the voice wake config path for a tenant.
+ */
+export function resolveTenantVoiceWakePath(
+  tenantId: TenantId,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantSettingsDir(tenantId, env), "voicewake.json");
+}
+
+/**
+ * Resolves the agents directory for a tenant.
+ */
+export function resolveTenantAgentsDir(
+  tenantId: TenantId,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantStateDir(tenantId, env), "agents");
+}
+
+/**
+ * Resolves a specific agent's directory for a tenant.
+ */
+export function resolveTenantAgentDir(
+  tenantId: TenantId,
+  agentId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantAgentsDir(tenantId, env), agentId);
+}
+
+/**
+ * Resolves an agent's workspace directory for a tenant.
+ */
+export function resolveTenantAgentWorkspaceDir(
+  tenantId: TenantId,
+  agentId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantAgentDir(tenantId, agentId, env), "workspace");
+}
+
+/**
+ * Resolves a channel credential file path for a tenant.
+ */
+export function resolveTenantChannelCredentialsPath(
+  tenantId: TenantId,
+  channelId: string,
+  accountId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.join(resolveTenantCredentialsDir(tenantId, env), `${channelId}-${accountId}.json`);
+}
