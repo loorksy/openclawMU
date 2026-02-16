@@ -96,6 +96,11 @@ export type GatewayRequestContext = {
     prompter: import("../../wizard/prompts.js").WizardPrompter,
   ) => Promise<void>;
   broadcastVoiceWakeChanged: (triggers: string[]) => void;
+  // OPENCLAWMU: Optional admin resource methods
+  getActiveConnectionCount?: () => number;
+  getActiveSandboxCount?: () => number;
+  getActiveSandboxes?: () => Array<{ id: string; tenantId?: string; createdAt: number }>;
+  killSandbox?: (sandboxId: string) => Promise<boolean>;
 };
 
 export type GatewayRequestOptions = {

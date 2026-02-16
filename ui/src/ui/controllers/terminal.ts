@@ -56,7 +56,7 @@ export class TerminalController implements ReactiveController {
 
     try {
       const response = await this.callGateway("terminal.list", {});
-      const sessions = response.sessions ?? [];
+      const sessions = (response.sessions ?? []) as TerminalSession[];
       this.state = { ...this.state, sessions, loading: false };
       this.host.requestUpdate();
       return sessions;

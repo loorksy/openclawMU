@@ -87,21 +87,23 @@ export const nodeHandlers: GatewayRequestHandlers = {
     };
     const baseDir = getBaseDir(opts);
     await respondUnavailableOnThrow(respond, async () => {
-      const result = await requestNodePairing({
-        nodeId: p.nodeId,
-        displayName: p.displayName,
-        platform: p.platform,
-        version: p.version,
-        coreVersion: p.coreVersion,
-        uiVersion: p.uiVersion,
-        deviceFamily: p.deviceFamily,
-        modelIdentifier: p.modelIdentifier,
-        caps: p.caps,
-        commands: p.commands,
-        remoteIp: p.remoteIp,
-        silent: p.silent,
+      const result = await requestNodePairing(
+        {
+          nodeId: p.nodeId,
+          displayName: p.displayName,
+          platform: p.platform,
+          version: p.version,
+          coreVersion: p.coreVersion,
+          uiVersion: p.uiVersion,
+          deviceFamily: p.deviceFamily,
+          modelIdentifier: p.modelIdentifier,
+          caps: p.caps,
+          commands: p.commands,
+          remoteIp: p.remoteIp,
+          silent: p.silent,
+        },
         baseDir,
-      });
+      );
       if (result.status === "pending" && result.created) {
         context.broadcast("node.pair.requested", result.request, {
           dropIfSlow: true,

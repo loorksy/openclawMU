@@ -18,6 +18,38 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
+## OpenClawMU — Multi-Tenant Fork
+
+> **This is OpenClawMU**, a multi-tenant fork of [OpenClaw](https://github.com/openclaw/openclaw) that adds enterprise-grade multi-tenancy support.
+
+### What OpenClawMU Adds
+
+OpenClawMU extends OpenClaw with complete tenant isolation, allowing multiple users to share a single gateway instance while maintaining strict data separation:
+
+- **Tenant Authentication** — Secure token-based auth with SHA-256 hashed storage and timing-safe comparison
+- **Data Isolation** — Separate sessions, memory, plugins, sandboxes, and config per tenant
+- **Web Terminal** — Browser-based terminal access to tenant sandboxes via xterm.js
+- **Tenant Cron** — Isolated scheduled jobs per tenant
+- **Skills & Config** — Per-tenant skill installation and configuration overlays
+- **Usage Tracking** — Token usage, cost tracking, and quota enforcement
+- **S3 Backup/Restore** — Backup tenant data to S3-compatible storage
+- **HTTP API Scoping** — OpenAI and OpenResponses endpoints scoped to tenant sessions
+- **Device/Node Pairing** — Tenant-isolated device and node pairing
+
+### Quick Start (Multi-Tenant)
+
+```bash
+# Create a tenant
+openclaw tenants create demo
+
+# Connect as tenant
+OPENCLAW_GATEWAY_TOKEN="tenant:demo:xxxxx" openclaw chat
+```
+
+Full documentation: [docs/multi-tenancy/README.md](docs/multi-tenancy/README.md)
+
+---
+
 **OpenClaw** is a _personal AI assistant_ you run on your own devices.
 It answers you on the channels you already use (WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Microsoft Teams, WebChat), plus extension channels like BlueBubbles, Matrix, Zalo, and Zalo Personal. It can speak and listen on macOS/iOS/Android, and can render a live Canvas you control. The Gateway is just the control plane — the product is the assistant.
 

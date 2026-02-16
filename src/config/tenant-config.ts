@@ -18,7 +18,7 @@ import { loadConfig } from "./io.js";
  * These include system-wide settings that affect security, authentication, and
  * core infrastructure.
  */
-const ADMIN_ONLY_KEYS: (keyof OpenClawConfig)[] = ["gateway", "providers", "meta"];
+const ADMIN_ONLY_KEYS: (keyof OpenClawConfig)[] = ["gateway", "models", "meta"];
 
 /**
  * Keys within nested objects that are admin-only.

@@ -13,7 +13,11 @@ import {
 } from "./agent-prompt.js";
 import { sendJson, setSseHeaders, writeDone } from "./http-common.js";
 import { handleGatewayPostJsonEndpoint } from "./http-endpoint-helpers.js";
-import { resolveAgentIdForRequest, resolveSessionKey } from "./http-utils.js";
+import {
+  resolveAgentIdForRequest,
+  resolveSessionKey,
+  scopeSessionKeyToTenant,
+} from "./http-utils.js";
 
 type OpenAiHttpOptions = {
   auth: ResolvedGatewayAuth;
@@ -165,7 +169,24 @@ export async function handleOpenAiHttpRequest(
   const user = typeof payload.user === "string" ? payload.user : undefined;
 
   const agentId = resolveAgentIdForRequest({ req, model });
-  const sessionKey = resolveOpenAiSessionKey({ req, agentId, user });
+  const rawSessionKey = resolveOpenAiSessionKey({ req, agentId, user });
+
+  // OPENCLAWMU: Scope session key to tenant if authenticated via tenant token
+  const scopeResult = scopeSessionKeyToTenant({
+    sessionKey: rawSessionKey,
+    tenantId: handled.tenantId,
+  });
+  if (!scopeResult.ok) {
+    sendJson(res, 403, {
+      error: {
+        message: scopeResult.error,
+        type: "forbidden",
+      },
+    });
+    return true;
+  }
+  const sessionKey = scopeResult.sessionKey;
+
   const prompt = buildAgentPrompt(payload.messages);
   if (!prompt.message) {
     sendJson(res, 400, {

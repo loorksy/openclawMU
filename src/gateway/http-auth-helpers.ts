@@ -1,8 +1,21 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AuthRateLimiter } from "./auth-rate-limit.js";
-import { authorizeGatewayConnect, type ResolvedGatewayAuth } from "./auth.js";
+import {
+  authorizeGatewayConnect,
+  type GatewayAuthResult,
+  type ResolvedGatewayAuth,
+} from "./auth.js";
 import { sendGatewayAuthFailure } from "./http-common.js";
 import { getBearerToken } from "./http-utils.js";
+
+/**
+ * Result of successful gateway authorization.
+ * OPENCLAWMU: Extended to include tenantId for multi-tenant session scoping.
+ */
+export type GatewayBearerAuthResult = {
+  ok: true;
+  tenantId?: string;
+};
 
 export async function authorizeGatewayBearerRequestOrReply(params: {
   req: IncomingMessage;
@@ -10,7 +23,7 @@ export async function authorizeGatewayBearerRequestOrReply(params: {
   auth: ResolvedGatewayAuth;
   trustedProxies?: string[];
   rateLimiter?: AuthRateLimiter;
-}): Promise<boolean> {
+}): Promise<GatewayBearerAuthResult | false> {
   const token = getBearerToken(params.req);
   const authResult = await authorizeGatewayConnect({
     auth: params.auth,
@@ -23,5 +36,6 @@ export async function authorizeGatewayBearerRequestOrReply(params: {
     sendGatewayAuthFailure(params.res, authResult);
     return false;
   }
-  return true;
+  // OPENCLAWMU: Return auth result with tenantId for session scoping
+  return { ok: true, tenantId: authResult.tenantId };
 }

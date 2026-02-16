@@ -227,6 +227,23 @@ export const icons = {
   circle: html`
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /></svg>
   `,
+  // OPENCLAWMU: Admin resource icons
+  users: html`
+    <svg viewBox="0 0 24 24">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  `,
+  refresh: html`
+    <svg viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 16H3v5" />
+    </svg>
+  `,
   puzzle: html`
     <svg viewBox="0 0 24 24">
       <path

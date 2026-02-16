@@ -4,6 +4,15 @@ import type { ResolvedGatewayAuth } from "./auth.js";
 import { authorizeGatewayBearerRequestOrReply } from "./http-auth-helpers.js";
 import { readJsonBodyOrError, sendMethodNotAllowed } from "./http-common.js";
 
+/**
+ * Result of a successful POST JSON endpoint request.
+ * OPENCLAWMU: Extended to include tenantId for multi-tenant session scoping.
+ */
+export type PostJsonEndpointResult = {
+  body: unknown;
+  tenantId?: string;
+};
+
 export async function handleGatewayPostJsonEndpoint(
   req: IncomingMessage,
   res: ServerResponse,
@@ -14,7 +23,7 @@ export async function handleGatewayPostJsonEndpoint(
     trustedProxies?: string[];
     rateLimiter?: AuthRateLimiter;
   },
-): Promise<false | { body: unknown } | undefined> {
+): Promise<false | PostJsonEndpointResult | undefined> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host || "localhost"}`);
   if (url.pathname !== opts.pathname) {
     return false;
@@ -25,14 +34,14 @@ export async function handleGatewayPostJsonEndpoint(
     return undefined;
   }
 
-  const authorized = await authorizeGatewayBearerRequestOrReply({
+  const authResult = await authorizeGatewayBearerRequestOrReply({
     req,
     res,
     auth: opts.auth,
     trustedProxies: opts.trustedProxies,
     rateLimiter: opts.rateLimiter,
   });
-  if (!authorized) {
+  if (!authResult) {
     return undefined;
   }
 
@@ -41,5 +50,6 @@ export async function handleGatewayPostJsonEndpoint(
     return undefined;
   }
 
-  return { body };
+  // OPENCLAWMU: Include tenantId in result for session scoping
+  return { body, tenantId: authResult.tenantId };
 }

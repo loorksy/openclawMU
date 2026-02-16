@@ -6,6 +6,9 @@ export const ErrorCodes = {
   AGENT_TIMEOUT: "AGENT_TIMEOUT",
   INVALID_REQUEST: "INVALID_REQUEST",
   UNAVAILABLE: "UNAVAILABLE",
+  // OPENCLAWMU: additional error codes for multi-tenancy
+  UNAUTHORIZED: "UNAUTHORIZED",
+  NOT_FOUND: "NOT_FOUND",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

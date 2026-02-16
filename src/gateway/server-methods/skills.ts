@@ -248,16 +248,13 @@ export const skillsHandlers: GatewayRequestHandlers = {
 
     if (tenantId) {
       // Tenant-specific: write to tenant config overlay
-      await updateTenantConfig(tenantId, (overlay) => ({
-        ...overlay,
+      await updateTenantConfig(tenantId, {
         skills: {
-          ...overlay.skills,
           entries: {
-            ...overlay.skills?.entries,
             [p.skillKey]: current,
           },
         },
-      }));
+      });
     } else {
       const nextConfig: OpenClawConfig = {
         ...cfg,

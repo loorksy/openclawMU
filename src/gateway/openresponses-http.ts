@@ -42,7 +42,11 @@ import {
 } from "./agent-prompt.js";
 import { sendJson, setSseHeaders, writeDone } from "./http-common.js";
 import { handleGatewayPostJsonEndpoint } from "./http-endpoint-helpers.js";
-import { resolveAgentIdForRequest, resolveSessionKey } from "./http-utils.js";
+import {
+  resolveAgentIdForRequest,
+  resolveSessionKey,
+  scopeSessionKeyToTenant,
+} from "./http-utils.js";
 import {
   CreateResponseBodySchema,
   type ContentPart,
@@ -492,7 +496,23 @@ export async function handleOpenResponsesHttpRequest(
     return true;
   }
   const agentId = resolveAgentIdForRequest({ req, model });
-  const sessionKey = resolveOpenResponsesSessionKey({ req, agentId, user });
+  const rawSessionKey = resolveOpenResponsesSessionKey({ req, agentId, user });
+
+  // OPENCLAWMU: Scope session key to tenant if authenticated via tenant token
+  const scopeResult = scopeSessionKeyToTenant({
+    sessionKey: rawSessionKey,
+    tenantId: handled.tenantId,
+  });
+  if (!scopeResult.ok) {
+    sendJson(res, 403, {
+      error: {
+        message: scopeResult.error,
+        type: "forbidden",
+      },
+    });
+    return true;
+  }
+  const sessionKey = scopeResult.sessionKey;
 
   // Build prompt from input
   const prompt = buildAgentPrompt(payload.input);

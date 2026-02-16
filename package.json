@@ -168,6 +168,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.990.0",
     "@grammyjs/types": "^3.24.0",
     "@lit-labs/signals": "^0.2.0",
     "@lit/context": "^1.1.6",

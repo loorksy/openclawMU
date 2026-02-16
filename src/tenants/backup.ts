@@ -9,8 +9,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import * as tar from "tar";
+import type { TenantId } from "./types.js";
 import { resolveTenantStateDir } from "./paths.js";
-import { getTenant, createTenant, type TenantId } from "./registry.js";
+import { getTenant, createTenant } from "./registry.js";
 
 export type BackupConfig = {
   /** S3 endpoint (for S3-compatible services like MinIO). */
@@ -107,9 +108,11 @@ async function extractTarGz(archivePath: string, targetDir: string): Promise<voi
     noMtime: true,
     // Security: filter out dangerous entries
     filter: (entryPath, entry) => {
+      // Cast entry to ReadEntry to access type and linkpath
+      const readEntry = entry as tar.ReadEntry;
       // Reject symlinks that could point outside the target directory
-      if (entry.type === "SymbolicLink" || entry.type === "Link") {
-        const linkTarget = entry.linkpath ?? "";
+      if (readEntry.type === "SymbolicLink" || readEntry.type === "Link") {
+        const linkTarget = readEntry.linkpath ?? "";
         // Resolve the symlink target relative to the entry's parent directory
         const entryDir = path.dirname(path.join(resolvedTargetDir, entryPath));
         const resolvedLink = path.resolve(entryDir, linkTarget);

@@ -520,4 +520,4 @@ export async function saveHourlyAggregate(env: NodeJS.ProcessEnv = process.env):
 // Exports
 // ============================================================================
 
-export type { SystemResourceSnapshot, TenantResourceSummary, TenantAggregateMetrics };
+// Types are already exported inline above (lines 74, 87, 108)

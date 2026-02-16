@@ -378,7 +378,7 @@ export async function runExecProcess(opts: {
       argv: [
         "docker",
         ...buildDockerExecArgs({
-          containerName: opts.sandbox.containerName,
+          containerName: opts.sandbox.containerName!,
           command: execCommand,
           workdir: opts.containerWorkdir ?? opts.sandbox.containerWorkdir,
           env: opts.env,

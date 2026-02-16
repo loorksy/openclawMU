@@ -35,8 +35,12 @@ describe("handleControlUiHttpRequest", () => {
         },
       );
       expect(handled).toBe(true);
-      expect(setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY");
-      expect(setHeader).toHaveBeenCalledWith("Content-Security-Policy", "frame-ancestors 'none'");
+      // OPENCLAWMU: Control UI uses SAMEORIGIN to allow framing from control plane for multi-tenant UI
+      expect(setHeader).toHaveBeenCalledWith("X-Frame-Options", "SAMEORIGIN");
+      expect(setHeader).toHaveBeenCalledWith(
+        "Content-Security-Policy",
+        "frame-ancestors 'self' http://localhost:* https://localhost:*",
+      );
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
