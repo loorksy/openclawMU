@@ -128,22 +128,23 @@ All tenant session keys are prefixed with `tenant:{tenantId}:` to ensure isolati
 
 ## Gateway Methods
 
-### Tenant-Allowed Methods (44 total)
+### Tenant-Allowed Methods (59 total)
 
-Tenants can only call these methods. All others are blocked with "method not allowed for tenant tokens".
+Tenants can only call these methods. All others are blocked with "method not available for tenant token".
 
 | Category              | Methods                                                                                                                                                                          |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Tenant Management** | `tenants.get`, `tenants.rotate`, `tenants.backup`, `tenants.backups.list`, `tenants.restore`, `tenants.delete`, `tenants.usage`, `tenants.quota.status`, `tenants.usage.history` |
 | **Terminal**          | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.close`, `terminal.list`                                                                                         |
 | **Config**            | `config.get`, `config.set`, `config.patch`, `config.schema`                                                                                                                      |
+| **Agents**            | `agents.list`, `agents.create`, `agents.update`, `agents.delete`, `agents.files.list`, `agents.files.get`, `agents.files.set`                                                    |
 | **Sessions**          | `sessions.list`, `sessions.preview`                                                                                                                                              |
-| **Cron**              | `cron.list`, `cron.add`, `cron.update`, `cron.remove`, `cron.status`, `cron.runs`                                                                                                |
+| **Cron**              | `cron.list`, `cron.add`, `cron.update`, `cron.remove`, `cron.status`, `cron.runs`, `cron.run`                                                                                    |
 | **Skills**            | `skills.status`, `skills.bins`, `skills.install`, `skills.update`                                                                                                                |
-| **Channels**          | `channels.status` (read-only)                                                                                                                                                    |
+| **Channels**          | `channels.status`, `channels.start`, `channels.stop`, `channels.logout`                                                                                                          |
+| **Voice Wake**        | `voicewake.get`, `voicewake.set`                                                                                                                                                 |
 | **Devices**           | `device.pair.list`, `device.pair.approve`, `device.pair.reject`, `device.token.rotate`, `device.token.revoke`                                                                    |
 | **Nodes**             | `node.pair.request`, `node.pair.list`, `node.pair.approve`, `node.pair.reject`, `node.pair.verify`, `node.rename`, `node.list`, `node.describe`, `node.invoke`                   |
-| **Agents**            | `agents.list` (read-only)                                                                                                                                                        |
 | **Health**            | `health`                                                                                                                                                                         |
 
 ### Admin-Only Methods
@@ -151,10 +152,9 @@ Tenants can only call these methods. All others are blocked with "method not all
 These methods are blocked for tenant tokens:
 
 - `wizard.*` — Configuration wizard
-- `status`, `usage.status`, `usage.cost` — Global status
-- `agents.create`, `agents.update`, `agents.delete` — Agent CRUD
-- `channels.logout` — Channel management
+- `status`, `usage.status`, `usage.cost`, `logs.tail` — Global status and logs
 - `tenants.list`, `tenants.create` — Tenant administration
+- `sessions.patch`, `sessions.reset`, `sessions.delete`, `sessions.compact` — Session modification
 
 ## CLI Commands
 
@@ -278,25 +278,26 @@ document.body.appendChild(terminal);
 
 ## Cron Jobs
 
-Tenants have isolated cron job storage and management.
+Tenants have isolated cron job storage and management with full scheduling support.
 
 ### How It Works
 
 - Tenant jobs stored in `{tenantDir}/cron/jobs.json`
-- Separate from global cron service
-- Jobs must be manually triggered (no auto-scheduling)
+- Tenant-isolated cron service with auto-scheduling
 - Uses standard cron expression format
+- Jobs can be manually triggered via `cron.run`
 
 ### Cron Methods
 
-| Method        | Description    | Access |
-| ------------- | -------------- | ------ |
-| `cron.list`   | List cron jobs | Tenant |
-| `cron.add`    | Create new job | Tenant |
-| `cron.update` | Update job     | Tenant |
-| `cron.remove` | Delete job     | Tenant |
-| `cron.status` | Get job status | Tenant |
-| `cron.runs`   | View job runs  | Tenant |
+| Method        | Description      | Access |
+| ------------- | ---------------- | ------ |
+| `cron.list`   | List cron jobs   | Tenant |
+| `cron.add`    | Create new job   | Tenant |
+| `cron.update` | Update job       | Tenant |
+| `cron.remove` | Delete job       | Tenant |
+| `cron.status` | Get job status   | Tenant |
+| `cron.runs`   | View job runs    | Tenant |
+| `cron.run`    | Manually trigger | Tenant |
 
 ## Skills & Plugins
 
@@ -462,14 +463,11 @@ Set `gateway.controlPlaneToken` in config and pass via `X-Control-Plane-Token` h
 
 ### Current Limitations
 
-- **Channel Management**: Tenants cannot start/stop channels (read-only access via `channels.status`)
-- **Agent CRUD**: Tenants cannot create/update/delete agents (admin-only)
 - **Wizard**: Configuration wizard is admin-only
-- **Voice Wake**: Always-on voice wake requires gateway-level config
+- **Global Status**: Tenants cannot view global server status or logs (only health check)
 
 ### Design Decisions
 
-- **No Auto-Scheduling**: Tenant cron jobs must be manually triggered (global heartbeat not available)
 - **Single Workspace**: All tenant agents share one workspace at `{tenantDir}/workspace`
 - **Config Overlay**: Admin-only keys (`gateway`, `models`, `meta`) cannot be modified by tenants
 

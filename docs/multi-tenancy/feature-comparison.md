@@ -18,21 +18,19 @@ This document explicitly maps the differences between default (single-operator) 
 - **Self** - Own resources only
 - **None** - Not available
 
-| Feature Category     | Default Mode | Multi-Tenant Admin | Multi-Tenant Tenant     |
-| -------------------- | ------------ | ------------------ | ----------------------- |
-| **Configuration**    | Full         | Full               | Self (overlay)          |
-| **Agent Management** | Full         | Full               | Read-only               |
-| **Session Control**  | Full         | Full               | Self (read-only)        |
-| **Terminal Access**  | Full         | Full               | Self                    |
-| **Canvas/UI**        | Full         | Full               | Self\*                  |
-| **Cron Jobs**        | Full         | Full               | Self (no auto-schedule) |
-| **Skills**           | Full         | Full               | Self                    |
-| **Channels**         | Full         | Full               | Read-only               |
-| **Pairing**          | Full         | Full               | Self                    |
-| **Backups**          | N/A          | Full               | Self                    |
-| **Usage/Quotas**     | N/A          | Full               | Self                    |
-
-\*Canvas access is enabled but resource isolation is not yet implemented - tenants may see global canvas data.
+| Feature Category     | Default Mode | Multi-Tenant Admin | Multi-Tenant Tenant |
+| -------------------- | ------------ | ------------------ | ------------------- |
+| **Configuration**    | Full         | Full               | Self (overlay)      |
+| **Agent Management** | Full         | Full               | Self                |
+| **Session Control**  | Full         | Full               | Self (read-only)    |
+| **Terminal Access**  | Full         | Full               | Self                |
+| **Canvas/UI**        | Full         | Full               | Self                |
+| **Cron Jobs**        | Full         | Full               | Self                |
+| **Skills**           | Full         | Full               | Self                |
+| **Channels**         | Full         | Full               | Self                |
+| **Pairing**          | Full         | Full               | Self                |
+| **Backups**          | N/A          | Full               | Self                |
+| **Usage/Quotas**     | N/A          | Full               | Self                |
 
 ## Detailed Feature Breakdown
 
@@ -67,19 +65,23 @@ This document explicitly maps the differences between default (single-operator) 
 
 ### 3. Agent Management
 
-| Operation          | Default | Admin | Tenant                   |
-| ------------------ | ------- | ----- | ------------------------ |
-| `agents.list`      | Yes     | Yes   | Yes (from merged config) |
-| `agents.create`    | Yes     | Yes   | **No**                   |
-| `agents.update`    | Yes     | Yes   | **No**                   |
-| `agents.delete`    | Yes     | Yes   | **No**                   |
-| `agent` (chat)     | Yes     | Yes   | **No**                   |
-| `agent.identity.*` | Yes     | Yes   | **No**                   |
+| Operation           | Default | Admin | Tenant                   |
+| ------------------- | ------- | ----- | ------------------------ |
+| `agents.list`       | Yes     | Yes   | Yes (from merged config) |
+| `agents.create`     | Yes     | Yes   | Yes (tenant-isolated)    |
+| `agents.update`     | Yes     | Yes   | Yes (tenant-isolated)    |
+| `agents.delete`     | Yes     | Yes   | Yes (tenant-isolated)    |
+| `agents.files.list` | Yes     | Yes   | Yes (tenant-isolated)    |
+| `agents.files.get`  | Yes     | Yes   | Yes (tenant-isolated)    |
+| `agents.files.set`  | Yes     | Yes   | Yes (tenant-isolated)    |
+| `agent` (chat)      | Yes     | Yes   | **No**                   |
+| `agent.identity.*`  | Yes     | Yes   | **No**                   |
 
 **Tenant Capabilities:**
 
 - `agents.list` returns agents defined in the tenant's merged config (base + overlay)
-- Agents must be pre-configured by admin in the tenant's config overlay
+- Tenants can create, update, and delete their own agents
+- Agent files are stored in the tenant's isolated directory
 - Tenants can interact with agents via the terminal interface
 
 ### 4. Session Management
@@ -101,60 +103,89 @@ This document explicitly maps the differences between default (single-operator) 
 
 ### 5. Cron Jobs
 
-| Operation     | Default | Admin | Tenant |
-| ------------- | ------- | ----- | ------ |
-| `cron.list`   | Yes     | Yes   | **No** |
-| `cron.add`    | Yes     | Yes   | **No** |
-| `cron.update` | Yes     | Yes   | **No** |
-| `cron.remove` | Yes     | Yes   | **No** |
-| `cron.run`    | Yes     | Yes   | **No** |
-| `cron.status` | Yes     | Yes   | **No** |
+| Operation     | Default | Admin | Tenant                |
+| ------------- | ------- | ----- | --------------------- |
+| `cron.list`   | Yes     | Yes   | Yes (tenant-isolated) |
+| `cron.add`    | Yes     | Yes   | Yes (tenant-isolated) |
+| `cron.update` | Yes     | Yes   | Yes (tenant-isolated) |
+| `cron.remove` | Yes     | Yes   | Yes (tenant-isolated) |
+| `cron.run`    | Yes     | Yes   | Yes (tenant-isolated) |
+| `cron.status` | Yes     | Yes   | Yes (tenant-isolated) |
+| `cron.runs`   | Yes     | Yes   | Yes (tenant-isolated) |
 
-**Tenant Limitation:** Tenants cannot create or manage scheduled tasks.
+**Tenant Capabilities:**
+
+- Tenants have full cron job management with auto-scheduling
+- Jobs are stored in `{tenantDir}/cron/jobs.json`
+- Tenant-isolated cron service handles scheduling
 
 ### 6. Skills & Plugins
 
-| Operation        | Default | Admin | Tenant |
-| ---------------- | ------- | ----- | ------ |
-| `skills.status`  | Yes     | Yes   | **No** |
-| `skills.install` | Yes     | Yes   | **No** |
-| `skills.update`  | Yes     | Yes   | **No** |
+| Operation        | Default | Admin | Tenant                |
+| ---------------- | ------- | ----- | --------------------- |
+| `skills.status`  | Yes     | Yes   | Yes (tenant-isolated) |
+| `skills.bins`    | Yes     | Yes   | Yes (tenant-isolated) |
+| `skills.install` | Yes     | Yes   | Yes (tenant-isolated) |
+| `skills.update`  | Yes     | Yes   | Yes (tenant-isolated) |
 
-**Tenant Limitation:** Tenants cannot install or manage skills. Skills must be pre-configured by admin.
+**Tenant Capabilities:**
+
+- Tenants can install and manage skills within their workspace
+- Skills are installed in `{tenantDir}/workspace/`
+- Binary requirements tracked per skill
 
 ### 7. Channel Operations
 
-| Operation         | Default | Admin | Tenant |
-| ----------------- | ------- | ----- | ------ |
-| `channels.status` | Yes     | Yes   | **No** |
-| `channels.logout` | Yes     | Yes   | **No** |
-| `send` (message)  | Yes     | Yes   | **No** |
-| `chat.send`       | Yes     | Yes   | **No** |
+| Operation         | Default | Admin | Tenant                |
+| ----------------- | ------- | ----- | --------------------- |
+| `channels.status` | Yes     | Yes   | Yes (tenant-isolated) |
+| `channels.start`  | Yes     | Yes   | Yes (tenant-isolated) |
+| `channels.stop`   | Yes     | Yes   | Yes (tenant-isolated) |
+| `channels.logout` | Yes     | Yes   | Yes (tenant-isolated) |
+| `send` (message)  | Yes     | Yes   | **No**                |
+| `chat.send`       | Yes     | Yes   | **No**                |
 
-**Tenant Limitation:** Tenants cannot interact with messaging channels (WhatsApp, Telegram, Discord, etc.).
+**Tenant Capabilities:**
 
-### 8. Device Pairing
+- Tenants can manage their own channel connections (start, stop, logout)
+- Direct message sending (`send`, `chat.send`) requires admin scope
 
-| Operation        | Default | Admin | Tenant |
-| ---------------- | ------- | ----- | ------ |
-| `node.pair.*`    | Yes     | Yes   | **No** |
-| `device.pair.*`  | Yes     | Yes   | **No** |
-| `device.token.*` | Yes     | Yes   | **No** |
-| `node.invoke`    | Yes     | Yes   | **No** |
-| `node.list`      | Yes     | Yes   | **No** |
+### 8. Device & Node Pairing
 
-**Tenant Limitation:** Tenants cannot pair nodes, devices, or invoke commands on remote nodes.
+| Operation             | Default | Admin | Tenant                |
+| --------------------- | ------- | ----- | --------------------- |
+| `device.pair.list`    | Yes     | Yes   | Yes (tenant-isolated) |
+| `device.pair.approve` | Yes     | Yes   | Yes (tenant-isolated) |
+| `device.pair.reject`  | Yes     | Yes   | Yes (tenant-isolated) |
+| `device.token.rotate` | Yes     | Yes   | Yes (tenant-isolated) |
+| `device.token.revoke` | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.pair.request`   | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.pair.list`      | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.pair.approve`   | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.pair.reject`    | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.pair.verify`    | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.rename`         | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.list`           | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.describe`       | Yes     | Yes   | Yes (tenant-isolated) |
+| `node.invoke`         | Yes     | Yes   | Yes (tenant-isolated) |
+
+**Tenant Capabilities:**
+
+- Tenants can pair and manage their own devices and nodes
+- All device/node operations are tenant-isolated
 
 ### 9. Canvas/UI Access
 
-| Resource          | Default | Admin | Tenant      |
-| ----------------- | ------- | ----- | ----------- |
-| `/a2ui/*`         | Yes     | Yes   | **No**      |
-| `/canvas-host/*`  | Yes     | Yes   | **No**      |
-| `/canvas/ws`      | Yes     | Yes   | **No**      |
-| Bearer token auth | Yes     | Yes   | **Blocked** |
+| Resource          | Default | Admin | Tenant              |
+| ----------------- | ------- | ----- | ------------------- |
+| `/a2ui/*`         | Yes     | Yes   | Yes (tenant-scoped) |
+| `/canvas-host/*`  | Yes     | Yes   | Yes (tenant-scoped) |
+| `/canvas/ws`      | Yes     | Yes   | Yes (tenant-scoped) |
+| Bearer token auth | Yes     | Yes   | Yes                 |
 
-**Tenant Limitation:** Tenants are explicitly blocked from canvas access at the HTTP layer. The `hasAuthorizedWsClientForIp()` function filters out tenant-scoped connections.
+**Tenant Capabilities:**
+
+- Tenants can access canvas UI with tenant-scoped resources
 
 ### 10. Tenant Self-Management
 
@@ -180,7 +211,18 @@ This document explicitly maps the differences between default (single-operator) 
 - `tenants.restore` allows restoring own backups (cannot use `createIfMissing`)
 - Cannot enumerate other tenants or delete backups
 
-### 11. System Operations
+### 11. Voice Wake
+
+| Operation       | Default | Admin | Tenant                |
+| --------------- | ------- | ----- | --------------------- |
+| `voicewake.get` | Yes     | Yes   | Yes (tenant-isolated) |
+| `voicewake.set` | Yes     | Yes   | Yes (tenant-isolated) |
+
+**Tenant Capabilities:**
+
+- Tenants can configure voice wake settings for their sandbox
+
+### 12. System Operations
 
 | Operation      | Default | Admin | Tenant |
 | -------------- | ------- | ----- | ------ |
@@ -280,30 +322,32 @@ Tenant tokens do **not** use the scope system. Authorization is based solely on:
 
 1. **Terminal Access** - Spawn and interact with terminals in their sandbox
 2. **Configuration** - Read merged config, write to their overlay
-3. **Agent List** - View agents from their merged config
+3. **Agent Management** - Create, update, delete, and manage agent files
 4. **Session Access** - List and preview their own sessions
-5. **View Usage** - Check token usage, costs, quota status
-6. **Backup Data** - Export tenant data to S3-compatible storage
-7. **List Backups** - Enumerate their own backups
-8. **Restore Backups** - Restore their own backups
-9. **Rotate Token** - Generate a new authentication token
-10. **Get Info** - Retrieve their tenant metadata
-11. **Self-Delete** - Delete their own tenant (with confirmation)
-12. **Health Check** - Call the health endpoint
+5. **Cron Jobs** - Full cron job management with auto-scheduling
+6. **Skills** - Install and manage skills in their workspace
+7. **Channels** - Start, stop, and manage channel connections
+8. **Voice Wake** - Configure voice wake settings
+9. **Device/Node Pairing** - Pair and manage devices and nodes
+10. **Canvas/UI** - Access canvas UI with tenant-scoped resources
+11. **View Usage** - Check token usage, costs, quota status
+12. **Backup Data** - Export tenant data to S3-compatible storage
+13. **List Backups** - Enumerate their own backups
+14. **Restore Backups** - Restore their own backups
+15. **Rotate Token** - Generate a new authentication token
+16. **Get Info** - Retrieve their tenant metadata
+17. **Self-Delete** - Delete their own tenant (with confirmation)
+18. **Health Check** - Call the health endpoint
 
 ## Summary: What Tenants CANNOT Do
 
-1. **No Agent Create/Update/Delete** - Cannot create or modify agents
-2. **No Session Patch/Reset/Delete** - Cannot modify or delete sessions
-3. **No Cron Jobs** - Cannot schedule tasks
-4. **No Skills** - Cannot install or update skills
-5. **No Channels** - Cannot send messages or manage channel connections
-6. **No Pairing** - Cannot pair devices or nodes
-7. **No Canvas** - Blocked from UI builder access
-8. **No Other Tenants** - Cannot enumerate or access other tenants
-9. **No Backup Deletion** - Cannot delete backups
-10. **No System Status** - Limited to health check only
-11. **No Admin Config** - Cannot modify gateway, providers, or meta config
+1. **No Session Modification** - Cannot patch, reset, delete, or compact sessions
+2. **No Direct Messaging** - Cannot use `send` or `chat.send` for direct messages
+3. **No Other Tenants** - Cannot enumerate or access other tenants
+4. **No Backup Deletion** - Cannot delete backups
+5. **No System Status** - Limited to health check only (no global logs/status)
+6. **No Admin Config** - Cannot modify gateway, providers, or meta config
+7. **No Wizard Access** - Configuration wizard is admin-only
 
 ## Implementation Reference
 
