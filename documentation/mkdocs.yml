@@ -1,0 +1,139 @@
+site_name: OpenClawMU
+site_url: https://openclawmu.docs.neullabs.com/
+site_description: Multi-tenant fork of OpenClaw — self-hosted gateway for AI agents across WhatsApp, Telegram, Discord, iMessage, and more.
+site_author: Neullabs
+
+repo_url: https://github.com/neul-labs/openclawMU
+repo_name: neul-labs/openclawMU
+edit_uri: edit/main/documentation/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - content.tabs.link
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/neul-labs/openclawMU
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Install: getting-started/install.md
+      - Quick Start: getting-started/quickstart.md
+      - Onboarding Wizard: getting-started/wizard.md
+      - From Source: getting-started/from-source.md
+      - Updating: getting-started/updating.md
+  - Multi-Tenancy:
+      - multi-tenancy/index.md
+      - Feature Comparison: multi-tenancy/feature-comparison.md
+      - Tenant Operations: multi-tenancy/tenant-operations.md
+  - Gateway:
+      - gateway/index.md
+      - Configuration: gateway/configuration.md
+      - Security: gateway/security.md
+      - Remote Access: gateway/remote.md
+      - Tailscale: gateway/tailscale.md
+      - Doctor: gateway/doctor.md
+  - Channels:
+      - channels/index.md
+      - DM Policy & Pairing: channels/pairing.md
+      - Group Routing: channels/groups.md
+  - Tools & Skills:
+      - tools/index.md
+      - Browser: tools/browser.md
+      - Skills: tools/skills.md
+      - Slash Commands: tools/slash-commands.md
+  - Nodes & Platforms:
+      - platforms/index.md
+      - macOS: platforms/macos.md
+      - iOS & Android: platforms/mobile.md
+      - Nodes: platforms/nodes.md
+  - Concepts:
+      - concepts/index.md
+      - Architecture: concepts/architecture.md
+      - Sessions & Routing: concepts/sessions.md
+      - Models & Failover: concepts/models.md
+  - Reference:
+      - reference/index.md
+      - Development Channels: reference/development-channels.md
+      - Security Disclosure: reference/security.md
+      - License: reference/license.md
