@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/llm-task",
+  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw JSON-only LLM task plugin",

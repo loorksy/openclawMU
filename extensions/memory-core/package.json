@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/memory-core",
+  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw core memory search plugin",

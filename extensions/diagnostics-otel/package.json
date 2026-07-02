@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/diagnostics-otel",
+  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw diagnostics OpenTelemetry exporter",
   "type": "module",

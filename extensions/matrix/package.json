@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/matrix",
+  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw Matrix channel plugin",
   "type": "module",

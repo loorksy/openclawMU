@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/mattermost",
+  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw Mattermost channel plugin",

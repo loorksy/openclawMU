@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/zalouser",
+  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw Zalo Personal Account plugin via zca-cli",
   "type": "module",

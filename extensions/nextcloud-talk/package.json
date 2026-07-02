@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/nextcloud-talk",
+  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw Nextcloud Talk channel plugin",
   "type": "module",

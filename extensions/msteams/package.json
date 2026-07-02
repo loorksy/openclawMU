@@ -1,5 +1,6 @@
 {
   "name": "@openclaw/msteams",
+  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw Microsoft Teams channel plugin",
   "type": "module",
