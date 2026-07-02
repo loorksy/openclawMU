@@ -1,1 +1,1 @@
-export * from "openclawmu";
+export * from "openclaw";
