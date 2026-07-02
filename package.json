@@ -1,11 +1,29 @@
 {
-  "name": "openclaw",
+  "name": "openclawmu",
   "version": "2026.2.15",
-  "description": "Multi-channel AI gateway with extensible messaging integrations",
-  "keywords": [],
+  "description": "Multi-tenant fork of OpenClaw with strict data isolation — a self-hosted, multi-channel AI agent gateway.",
+  "keywords": [
+    "openclaw",
+    "ai-agent",
+    "multi-tenant",
+    "ai-gateway",
+    "whatsapp",
+    "messaging",
+    "self-hosted",
+    "chatbot"
+  ],
   "license": "MIT",
-  "author": "",
+  "author": "Neul Labs <contact@neullabs.com>",
+  "homepage": "https://openclawmu.neullabs.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neul-labs/openclawMU.git"
+  },
+  "bugs": {
+    "url": "https://github.com/neul-labs/openclawMU/issues"
+  },
   "bin": {
+    "openclawmu": "openclaw.mjs",
     "openclaw": "openclaw.mjs"
   },
   "files": [
