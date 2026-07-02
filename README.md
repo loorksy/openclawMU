@@ -1,15 +1,22 @@
-# OpenClawMU
-
-**Multi-tenant fork of OpenClaw with strict data isolation** — a self-hosted, multi-channel AI agent gateway that lets many users share one instance while keeping their sessions, memory, and data fully separated.
+# 🦞 OpenClaw — Personal AI Assistant
 
 <p align="center">
-  <a href="https://github.com/neul-labs/openclawMU/stargazers"><img src="https://img.shields.io/github/stars/neul-labs/openclawMU?style=for-the-badge" alt="GitHub stars"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
+    <picture>
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text-dark.png">
+        <img src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png" alt="OpenClaw" width="500">
+    </picture>
 </p>
 
-**[Website](https://openclawmu.neullabs.com)** · **[Documentation](https://docs.neullabs.com/openclawmu)** · **[GitHub](https://github.com/neul-labs/openclawMU)** · **[Neul Labs](https://www.neullabs.com)**
+<p align="center">
+  <strong>EXFOLIATE! EXFOLIATE!</strong>
+</p>
 
-OpenClawMU is a community fork of [OpenClaw](https://github.com/openclaw/openclaw) maintained by [Neul Labs](https://www.neullabs.com).
+<p align="center">
+  <a href="https://github.com/openclaw/openclaw/actions/workflows/ci.yml?branch=main"><img src="https://img.shields.io/github/actions/workflow/status/openclaw/openclaw/ci.yml?branch=main&style=for-the-badge" alt="CI status"></a>
+  <a href="https://github.com/openclaw/openclaw/releases"><img src="https://img.shields.io/github/v/release/openclaw/openclaw?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+  <a href="https://discord.gg/clawd"><img src="https://img.shields.io/discord/1456350064065904867?label=Discord&logo=discord&logoColor=white&color=5865F2&style=for-the-badge" alt="Discord"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
+</p>
 
 ## OpenClawMU — Multi-Tenant Fork
 
@@ -72,8 +79,8 @@ Model note: while any model is supported, I strongly recommend **Anthropic Pro/M
 Runtime: **Node ≥22**.
 
 ```bash
-npm install -g openclawmu@latest
-# or: pnpm add -g openclawmu@latest
+npm install -g openclaw@latest
+# or: pnpm add -g openclaw@latest
 
 openclaw onboard --install-daemon
 ```
@@ -572,17 +579,3 @@ Thanks to all clawtributors:
   <a href="https://github.com/search?q=Manuel%20Maly"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="Manuel Maly" title="Manuel Maly"/></a> <a href="https://github.com/minghinmatthewlam"><img src="https://avatars.githubusercontent.com/u/14224566?v=4&s=48" width="48" height="48" alt="minghinmatthewlam" title="minghinmatthewlam"/></a> <a href="https://github.com/search?q=Mourad%20Boustani"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="Mourad Boustani" title="Mourad Boustani"/></a> <a href="https://github.com/odrobnik"><img src="https://avatars.githubusercontent.com/u/333270?v=4&s=48" width="48" height="48" alt="odrobnik" title="odrobnik"/></a> <a href="https://github.com/pcty-nextgen-ios-builder"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="pcty-nextgen-ios-builder" title="pcty-nextgen-ios-builder"/></a> <a href="https://github.com/search?q=Quentin"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="Quentin" title="Quentin"/></a> <a href="https://github.com/rafaelreis-r"><img src="https://avatars.githubusercontent.com/u/57492577?v=4&s=48" width="48" height="48" alt="rafaelreis-r" title="rafaelreis-r"/></a> <a href="https://github.com/search?q=Randy%20Torres"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="Randy Torres" title="Randy Torres"/></a> <a href="https://github.com/rhjoh"><img src="https://avatars.githubusercontent.com/u/105699450?v=4&s=48" width="48" height="48" alt="rhjoh" title="rhjoh"/></a> <a href="https://github.com/search?q=Rolf%20Fredheim"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="Rolf Fredheim" title="Rolf Fredheim"/></a>
   <a href="https://github.com/ronak-guliani"><img src="https://avatars.githubusercontent.com/u/23518228?v=4&s=48" width="48" height="48" alt="ronak-guliani" title="ronak-guliani"/></a> <a href="https://github.com/search?q=William%20Stock"><img src="assets/avatar-placeholder.svg" width="48" height="48" alt="William Stock" title="William Stock"/></a>
 </p>
-
----
-
-## Part of the Neul Labs toolchain
-
-OpenClawMU is part of the OpenClaw cluster at [Neul Labs](https://www.neullabs.com):
-
-| Project | Description |
-|---------|-------------|
-| [openclaw-rs](https://github.com/neul-labs/openclaw-rs) | A community Rust implementation of OpenClaw. |
-| [openclawOS](https://github.com/neul-labs/openclawOS) | OS-like architecture for self-hosted AI assistants. |
-| [ukkin](https://github.com/neul-labs/ukkin) | Create AI agents on your phone that automate your daily tasks. |
-
-Explore all projects at [neullabs.com](https://www.neullabs.com).
