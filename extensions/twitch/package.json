@@ -1,9 +1,9 @@
 {
   "name": "@openclaw/twitch",
-  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw Twitch channel plugin",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@twurple/api": "^8.0.3",
@@ -12,7 +12,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

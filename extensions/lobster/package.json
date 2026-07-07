@@ -1,11 +1,11 @@
 {
   "name": "@openclaw/lobster",
-  "license": "MIT",
   "version": "2026.2.15",
   "description": "Lobster workflow tool plugin (typed pipelines + resumable approvals)",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

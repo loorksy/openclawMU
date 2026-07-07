@@ -1,14 +1,14 @@
 {
   "name": "@openclaw/zalouser",
-  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw Zalo Personal Account plugin via zca-cli",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@sinclair/typebox": "0.34.48"
   },
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

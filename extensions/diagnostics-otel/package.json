@@ -1,8 +1,8 @@
 {
   "name": "@openclaw/diagnostics-otel",
-  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw diagnostics OpenTelemetry exporter",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -18,7 +18,7 @@
     "@opentelemetry/semantic-conventions": "^1.39.0"
   },
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

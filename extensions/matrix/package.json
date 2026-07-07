@@ -1,8 +1,8 @@
 {
   "name": "@openclaw/matrix",
-  "license": "MIT",
   "version": "2026.2.15",
   "description": "OpenClaw Matrix channel plugin",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@matrix-org/matrix-sdk-crypto-nodejs": "^0.4.0",
@@ -12,7 +12,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

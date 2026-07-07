@@ -1,12 +1,12 @@
 {
   "name": "@openclaw/google-antigravity-auth",
-  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw Google Antigravity OAuth provider plugin",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

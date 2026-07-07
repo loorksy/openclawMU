@@ -1,15 +1,15 @@
 {
   "name": "@openclaw/memory-core",
-  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw core memory search plugin",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.1.26"
+    "openclawmu": ">=2026.1.26"
   },
   "openclaw": {
     "extensions": [

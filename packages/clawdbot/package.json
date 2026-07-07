@@ -1,8 +1,8 @@
 {
   "name": "clawdbot",
-  "license": "MIT",
   "version": "2026.2.12",
   "description": "Compatibility shim that forwards to openclaw",
+  "license": "MIT",
   "bin": {
     "clawdbot": "./bin/clawdbot.js"
   },
@@ -12,6 +12,6 @@
     "./cli-entry": "./bin/clawdbot.js"
   },
   "dependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   }
 }

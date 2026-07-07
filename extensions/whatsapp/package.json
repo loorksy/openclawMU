@@ -1,12 +1,12 @@
 {
   "name": "@openclaw/whatsapp",
-  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw WhatsApp channel plugin",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [

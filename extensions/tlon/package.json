@@ -1,15 +1,15 @@
 {
   "name": "@openclaw/tlon",
-  "license": "MIT",
   "version": "2026.2.15",
   "private": true,
   "description": "OpenClaw Tlon/Urbit channel plugin",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@urbit/aura": "^3.0.0"
   },
   "devDependencies": {
-    "openclaw": "workspace:*"
+    "openclawmu": "workspace:*"
   },
   "openclaw": {
     "extensions": [
