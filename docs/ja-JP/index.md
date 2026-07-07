@@ -92,7 +92,7 @@ Gatewayは、セッション、ルーティング、チャネル接続の信頼�
 <Steps>
   <Step title="OpenClawをインストール">
     ```bash
-    npm install -g openclaw@latest
+    npm install -g openclawmu@latest
     ```
   </Step>
   <Step title="オンボーディングとサービスのインストール">

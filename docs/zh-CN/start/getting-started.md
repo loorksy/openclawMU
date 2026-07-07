@@ -71,11 +71,11 @@ iwr -useb https://openclaw.ai/install.ps1 | iex
 替代方案（全局安装）：
 
 ```bash
-npm install -g openclaw@latest
+npm install -g openclawmu@latest
 ```
 
 ```bash
-pnpm add -g openclaw@latest
+pnpm add -g openclawmu@latest
 ```
 
 ## 2) 运行新手引导向导（并安装服务）

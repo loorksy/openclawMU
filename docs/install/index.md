@@ -71,7 +71,7 @@ The **installer script** is the recommended way to install OpenClaw. It handles 
     <Tabs>
       <Tab title="npm">
         ```bash
-        npm install -g openclaw@latest
+        npm install -g openclawmu@latest
         openclaw onboard --install-daemon
         ```
 
@@ -79,7 +79,7 @@ The **installer script** is the recommended way to install OpenClaw. It handles 
           If you have libvips installed globally (common on macOS via Homebrew) and `sharp` fails, force prebuilt binaries:
 
           ```bash
-          SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclaw@latest
+          SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclawmu@latest
           ```
 
           If you see `sharp: Please add node-gyp to your dependencies`, either install build tooling (macOS: Xcode CLT + `npm install -g node-gyp`) or use the env var above.
@@ -87,7 +87,7 @@ The **installer script** is the recommended way to install OpenClaw. It handles 
       </Tab>
       <Tab title="pnpm">
         ```bash
-        pnpm add -g openclaw@latest
+        pnpm add -g openclawmu@latest
         pnpm approve-builds -g        # approve openclaw, node-llama-cpp, sharp, etc.
         openclaw onboard --install-daemon
         ```

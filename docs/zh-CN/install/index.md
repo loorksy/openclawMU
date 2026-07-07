@@ -70,13 +70,13 @@ curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
 如果你已经有 Node：
 
 ```bash
-npm install -g openclaw@latest
+npm install -g openclawmu@latest
 ```
 
 如果你全局安装了 libvips（macOS 上通过 Homebrew 安装很常见）且 `sharp` 安装失败，请强制使用预构建二进制文件：
 
 ```bash
-SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclaw@latest
+SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclawmu@latest
 ```
 
 如果你看到 `sharp: Please add node-gyp to your dependencies`，要么安装构建工具（macOS：Xcode CLT + `npm install -g node-gyp`），要么使用上面的 `SHARP_IGNORE_GLOBAL_LIBVIPS=1` 变通方法来跳过原生构建。
@@ -84,9 +84,9 @@ SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclaw@latest
 或使用 pnpm：
 
 ```bash
-pnpm add -g openclaw@latest
+pnpm add -g openclawmu@latest
 pnpm approve-builds -g                # 批准 openclaw、node-llama-cpp、sharp 等
-pnpm add -g openclaw@latest           # 重新运行以执行 postinstall 脚本
+pnpm add -g openclawmu@latest           # 重新运行以执行 postinstall 脚本
 ```
 
 pnpm 需要显式批准带有构建脚本的包。在首次安装显示"Ignored build scripts"警告后，运行 `pnpm approve-builds -g` 并选择列出的包，然后重新运行安装以执行 postinstall 脚本。
@@ -128,7 +128,7 @@ openclaw onboard --install-daemon
 
 安装器支持两种方式：
 
-- `npm`（默认）：`npm install -g openclaw@latest`
+- `npm`（默认）：`npm install -g openclawmu@latest`
 - `git`：从 GitHub 克隆/构建并从源代码 checkout 运行
 
 ### CLI 标志

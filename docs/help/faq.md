@@ -863,7 +863,7 @@ openclaw gateway restart
 From git → npm:
 
 ```bash
-npm install -g openclaw@latest
+npm install -g openclawmu@latest
 openclaw doctor
 openclaw gateway restart
 ```

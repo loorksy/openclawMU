@@ -38,8 +38,8 @@ OpenClaw 是 **Pi** 智能体的 WhatsApp + Telegram + Discord + iMessage Gatewa
 - 助手的第二个手机号码（SIM/eSIM/预付费）
 
 ```bash
-npm install -g openclaw@latest
-# 或：pnpm add -g openclaw@latest
+npm install -g openclawmu@latest
+# 或：pnpm add -g openclawmu@latest
 ```
 
 从源代码（开发）：
