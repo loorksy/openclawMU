@@ -2,7 +2,10 @@
  * OPENCLAWMU ADDITION: Admin Platform runtime configuration.
  */
 
+import type { IncomingMessage } from "node:http";
 import { loadConfig } from "../config/config.js";
+import { getHeader } from "../gateway/http-utils.js";
+import { isTrustedProxyAddress } from "../gateway/net.js";
 
 export type AdminSameSite = "strict" | "lax" | "none";
 
@@ -64,19 +67,23 @@ export function resolveAdminPlatformConfig(
   const sessionTtlSeconds = Number(
     readEnv(env, "OPENCLAW_ADMIN_SESSION_TTL") ?? file?.sessionTtlSeconds ?? 43_200,
   );
-  const cookieSecure = parseBoolean(
-    readEnv(env, "OPENCLAW_ADMIN_COOKIE_SECURE"),
-    file?.cookieSecure ?? true,
-  );
   const cookieSameSite = parseSameSite(
     readEnv(env, "OPENCLAW_ADMIN_COOKIE_SAME_SITE"),
     file?.cookieSameSite ?? "strict",
   );
+  const cookieSecure = parseBoolean(
+    readEnv(env, "OPENCLAW_ADMIN_COOKIE_SECURE"),
+    file?.cookieSecure ?? true,
+  );
+  const domainOrigins = domain
+    ? cookieSecure
+      ? [`https://${domain}`]
+      : [`https://${domain}`, `http://${domain}`]
+    : [];
   const allowedOrigins = uniqueOrigins([
     ...(file?.allowedOrigins ?? []),
     ...(readEnv(env, "OPENCLAW_ADMIN_ALLOWED_ORIGINS")?.split(",") ?? []),
-    domain ? `https://${domain}` : "",
-    domain ? `http://${domain}` : "",
+    ...domainOrigins,
   ]);
   const enabled =
     file?.enabled ?? Boolean(sessionSecret || domain || (port && Number.isFinite(port)));
@@ -111,10 +118,47 @@ export function normalizeHost(hostHeader: string | undefined): string | null {
   return trimmed.split(":")[0] ?? trimmed;
 }
 
+export function resolveTrustedProxyList(): string[] {
+  return loadConfig().gateway?.trustedProxies ?? [];
+}
+
+/**
+ * Use X-Forwarded-Host / X-Forwarded-Proto only when the peer is in
+ * gateway.trustedProxies. Untrusted clients cannot spoof the Admin Host.
+ */
+export function resolveAdminRequestHost(
+  req: IncomingMessage,
+  trustedProxies: string[] = resolveTrustedProxyList(),
+): string | undefined {
+  if (isTrustedProxyAddress(req.socket?.remoteAddress, trustedProxies)) {
+    const forwarded = getHeader(req, "x-forwarded-host");
+    if (forwarded) {
+      return forwarded.split(",")[0]?.trim();
+    }
+  }
+  return getHeader(req, "host");
+}
+
+export function requestIsHttps(
+  req: IncomingMessage,
+  trustedProxies: string[] = resolveTrustedProxyList(),
+): boolean {
+  const socket = req.socket as { encrypted?: boolean } | undefined;
+  if (socket?.encrypted) {
+    return true;
+  }
+  if (!isTrustedProxyAddress(req.socket?.remoteAddress, trustedProxies)) {
+    return false;
+  }
+  const proto = getHeader(req, "x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  return proto === "https";
+}
+
 export function isAdminHostRequest(
-  hostHeader: string | undefined,
+  req: IncomingMessage,
   config: AdminPlatformRuntimeConfig,
   dedicatedListener: boolean,
+  trustedProxies: string[] = resolveTrustedProxyList(),
 ): boolean {
   if (dedicatedListener) {
     return true;
@@ -122,7 +166,7 @@ export function isAdminHostRequest(
   if (!config.domain) {
     return false;
   }
-  return normalizeHost(hostHeader) === config.domain;
+  return normalizeHost(resolveAdminRequestHost(req, trustedProxies)) === config.domain;
 }
 
 export function isAllowedOrigin(

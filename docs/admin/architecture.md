@@ -15,10 +15,11 @@ Internet
 
 ## Request flow
 
-1. Gateway HTTP handler checks Admin Platform first.
-2. If `Host` matches `OPENCLAW_ADMIN_DOMAIN` (or the dedicated admin port is used), the request never reaches Control UI.
-3. `/admin/api/*` requires an Admin session cookie plus CSRF on mutations.
-4. Handlers call existing tenant/usage/session modules. They do not reimplement isolation.
+1. WebSocket upgrades are left to the gateway (Admin never consumes `Upgrade: websocket`).
+2. If `Host` (or trusted `X-Forwarded-Host`) matches `OPENCLAW_ADMIN_DOMAIN`, or the dedicated admin port is used, the request is handled by Admin and never reaches Control UI.
+3. `app.example.com` and any other host keep existing Control UI, `/internal/v1`, and WebSocket behavior.
+4. `/admin/api/*` requires an Admin session cookie plus CSRF on mutations.
+5. Handlers call existing tenant/usage/session modules. They do not reimplement isolation.
 
 ## Persistence
 

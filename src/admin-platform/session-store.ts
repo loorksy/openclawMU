@@ -2,7 +2,7 @@
  * OPENCLAWMU ADDITION: hashed admin sessions + CSRF tokens.
  */
 
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { AdminSessionRecord, AdminSessionStoreFile } from "./types.js";
@@ -14,8 +14,8 @@ export function adminSessionCookieName(): string {
   return COOKIE_NAME;
 }
 
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+function hashToken(token: string, secret: string): string {
+  return createHmac("sha256", secret).update(token).digest("hex");
 }
 
 export function loadSessionStore(env: NodeJS.ProcessEnv = process.env): AdminSessionStoreFile {
@@ -63,9 +63,13 @@ function pruneExpired(store: AdminSessionStoreFile): boolean {
 export function createAdminSession(
   staffId: string,
   ttlSeconds: number,
+  sessionSecret: string | null,
   meta: { ip?: string; userAgent?: string },
   env: NodeJS.ProcessEnv = process.env,
 ): { token: string; session: AdminSessionRecord } {
+  if (!sessionSecret) {
+    throw new Error("Admin session secret is required");
+  }
   const store = loadSessionStore(env);
   pruneExpired(store);
   const token = randomBytes(32).toString("base64url");
@@ -73,7 +77,7 @@ export function createAdminSession(
   const session: AdminSessionRecord = {
     id: randomUUID(),
     staffId,
-    tokenHash: hashToken(token),
+    tokenHash: hashToken(token, sessionSecret),
     csrfToken: randomBytes(24).toString("base64url"),
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + ttlSeconds * 1000).toISOString(),
@@ -87,12 +91,13 @@ export function createAdminSession(
 
 export function findAdminSession(
   token: string | undefined,
+  sessionSecret: string | null,
   env: NodeJS.ProcessEnv = process.env,
 ): AdminSessionRecord | null {
-  if (!token) {
+  if (!token || !sessionSecret) {
     return null;
   }
-  const tokenHash = hashToken(token);
+  const tokenHash = hashToken(token, sessionSecret);
   const store = loadSessionStore(env);
   const changed = pruneExpired(store);
   const match = Object.values(store.sessions).find((session) => session.tokenHash === tokenHash);

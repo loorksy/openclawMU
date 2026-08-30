@@ -7,7 +7,6 @@ import fs from "node:fs";
 import type { TenantQuotas } from "../tenants/types.js";
 import type { AdminAuthContext, AdminRole } from "./types.js";
 import { loadConfig } from "../config/config.js";
-import { updateSessionStore } from "../config/sessions.js";
 import { sendJson } from "../gateway/http-common.js";
 import { getTenant, isValidTenantId } from "../tenants/index.js";
 import { appendAuditEvent, auditFromContext, readAuditEvents } from "./audit.js";
@@ -31,6 +30,7 @@ import {
   deleteAdminTenant,
   listTenantSessions,
   rotateAdminTenantToken,
+  terminateTenantSession,
   updateAdminTenant,
 } from "./tenant-data.js";
 import { isAdminRole } from "./types.js";
@@ -201,26 +201,13 @@ export async function handleAuthorizedApi(params: {
     if (!key) {
       throw new AdminValidationError("Session key required");
     }
-    const cfg = loadConfig();
-    const storePath =
-      cfg.session?.store && typeof cfg.session.store === "string" ? cfg.session.store : undefined;
-    if (!storePath) {
-      sendAdminError(res, 404, "Session store not found");
-      return;
-    }
-    let deleted = false;
-    await updateSessionStore(storePath, (store) => {
-      if (store[key]) {
-        delete store[key];
-        deleted = true;
-      }
-    });
+    const deleted = await terminateTenantSession(key);
     audit(ctx, req, "sessions.terminate", {
       targetType: "session",
       targetId: key,
       result: deleted ? "ok" : "error",
     });
-    sendJson(res, 200, { deleted, key });
+    sendJson(res, deleted ? 200 : 404, { deleted, key });
     return;
   }
 
@@ -253,6 +240,12 @@ export async function handleAuthorizedApi(params: {
   if (route === "/system" && method === "GET") {
     requirePerm(ctx, "system.read");
     sendJson(res, 200, { dashboard: await buildDashboard() });
+    return;
+  }
+
+  if (route === "/system" && (method === "POST" || method === "PATCH" || method === "DELETE")) {
+    requirePerm(ctx, "system.write");
+    sendAdminError(res, 405, "System mutations are not enabled");
     return;
   }
 
@@ -308,6 +301,9 @@ export async function handleAuthorizedApi(params: {
       role,
       password: asString(body.password),
     });
+    if (!created) {
+      throw new AdminForbiddenError("Staff bootstrap is closed");
+    }
     audit(ctx, req, "staff.create", {
       targetType: "staff",
       targetId: created.id,
@@ -336,7 +332,6 @@ export async function handleAuthorizedApi(params: {
       createdAt: target.createdAt,
       updatedAt: target.updatedAt,
       lastLoginAt: target.lastLoginAt,
-      totpEnabled: Boolean(target.totpEnabled),
     };
 
     if (action === "revoke" && method === "POST") {

@@ -39,7 +39,13 @@ export function registerAdminCli(program: Command) {
         password: String(opts.password ?? ""),
         name: String(opts.name ?? "Super Admin"),
         role: "super_admin",
+        bootstrapOnly: true,
       });
+      if (!staff) {
+        defaultRuntime.error("Staff store already initialized. Use the Admin UI to add accounts.");
+        defaultRuntime.exit(1);
+        return;
+      }
       if (opts.json) {
         defaultRuntime.log(JSON.stringify(staff, null, 2));
         return;

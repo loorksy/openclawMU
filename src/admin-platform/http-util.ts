@@ -20,6 +20,10 @@ export function applyAdminSecurityHeaders(
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-DNS-Prefetch-Control", "off");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  );
   const origin = getHeader(req, "origin");
   if (origin && isAllowedOrigin(origin, config)) {
     res.setHeader("Access-Control-Allow-Origin", origin);

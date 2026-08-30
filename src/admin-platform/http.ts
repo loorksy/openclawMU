@@ -12,7 +12,13 @@ import { getHeader } from "../gateway/http-utils.js";
 import { handleAuthorizedApi } from "./api-handlers.js";
 import { appendAuditEvent } from "./audit.js";
 import { loginStaff, maybeBootstrapStaff, requireCsrf, resolveAdminAuth } from "./auth-service.js";
-import { isAdminHostRequest, resolveAdminPlatformConfig } from "./config.js";
+import {
+  isAdminHostRequest,
+  isAllowedOrigin,
+  requestIsHttps,
+  resolveAdminPlatformConfig,
+  resolveTrustedProxyList,
+} from "./config.js";
 import {
   applyAdminSecurityHeaders,
   asString,
@@ -34,7 +40,9 @@ function writeError(res: ServerResponse, err: unknown): void {
     typeof (err as { status?: number }).status === "number"
       ? (err as { status: number }).status
       : 500;
-  const message = err instanceof Error ? err.message : "Internal error";
+  const raw = err instanceof Error ? err.message : "Internal error";
+  const message =
+    status >= 500 ? "Internal error" : raw && raw.length < 200 ? raw : "Request failed";
   sendJson(res, status, { error: message });
 }
 
@@ -48,7 +56,11 @@ export async function handleAdminPlatformHttpRequest(
   if (!config.enabled) {
     return false;
   }
-  if (!isAdminHostRequest(getHeader(req, "host"), config, Boolean(options.dedicatedListener))) {
+  if (String(req.headers.upgrade ?? "").toLowerCase() === "websocket") {
+    return false;
+  }
+
+  if (!isAdminHostRequest(req, config, Boolean(options.dedicatedListener))) {
     return false;
   }
 
@@ -75,6 +87,11 @@ export async function handleAdminPlatformHttpRequest(
     try {
       await maybeBootstrapStaff(config, env);
       if (url.pathname === "/admin/api/auth/login" && method === "POST") {
+        const origin = getHeader(req, "origin");
+        if (origin && !isAllowedOrigin(origin, config)) {
+          sendAdminError(res, 403, "Origin not allowed");
+          return true;
+        }
         const body = await readAdminJson(req, res);
         if (!body) {
           return true;
@@ -82,23 +99,23 @@ export async function handleAdminPlatformHttpRequest(
         const result = await loginStaff({
           email: asString(body.email),
           password: asString(body.password),
-          totp: asString(body.totp) || undefined,
           req,
           config,
           env,
         });
+        const trustedProxies = resolveTrustedProxyList();
         res.setHeader(
           "Set-Cookie",
           buildSessionCookie(result.token, {
             ttlSeconds: config.sessionTtlSeconds,
-            secure: config.cookieSecure,
+            secure: config.cookieSecure || requestIsHttps(req, trustedProxies),
             sameSite: config.cookieSameSite,
           }),
         );
         appendAuditEvent({
           actorId: result.staffId,
-          actorEmail: asString(body.email).toLowerCase(),
-          role: "admin",
+          actorEmail: result.email,
+          role: result.role,
           action: "auth.login",
           targetType: "session",
           result: "ok",
@@ -117,7 +134,7 @@ export async function handleAdminPlatformHttpRequest(
           "Set-Cookie",
           buildSessionCookie("", {
             ttlSeconds: 0,
-            secure: config.cookieSecure,
+            secure: config.cookieSecure || requestIsHttps(req, resolveTrustedProxyList()),
             sameSite: config.cookieSameSite,
             clear: true,
           }),

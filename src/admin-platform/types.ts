@@ -39,8 +39,6 @@ export type AdminStaffRecord = {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
-  totpEnabled?: boolean;
-  totpSecretEnc?: string;
 };
 
 export type AdminStaffPublic = {
@@ -52,7 +50,6 @@ export type AdminStaffPublic = {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
-  totpEnabled: boolean;
 };
 
 export type AdminStaffStoreFile = {
@@ -81,7 +78,7 @@ export type AdminAuditEvent = {
   ts: string;
   actorId: string;
   actorEmail: string;
-  role: AdminRole;
+  role: AdminRole | "unauthenticated";
   action: string;
   targetType: string;
   targetId?: string;
@@ -109,6 +106,5 @@ export function toPublicStaff(record: AdminStaffRecord): AdminStaffPublic {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     lastLoginAt: record.lastLoginAt,
-    totpEnabled: Boolean(record.totpEnabled),
   };
 }

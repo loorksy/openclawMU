@@ -9,8 +9,10 @@ The Admin Platform is a **separate** operator console for OpenClawMU. It is not 
 
 Typical host split:
 
-- Control UI / gateway: `https://app.example.com`
+- Control UI / gateway / `/internal/v1` / WebSocket: `https://app.example.com`
 - Admin Platform: `https://admin.example.com`
+
+Do not use `/app/admin` as the isolation boundary.
 
 ## What it reuses
 

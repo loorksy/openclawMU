@@ -3,13 +3,14 @@
  */
 
 import type { IncomingMessage } from "node:http";
-import type { AdminPlatformRuntimeConfig } from "./config.js";
-import type { AdminAuthContext, AdminPermission } from "./types.js";
+import type { AdminAuthContext, AdminPermission, AdminRole } from "./types.js";
 import { createAuthRateLimiter } from "../gateway/auth-rate-limit.js";
 import { getHeader } from "../gateway/http-utils.js";
+import { appendAuditEvent } from "./audit.js";
+import { resolveAdminPlatformConfig, type AdminPlatformRuntimeConfig } from "./config.js";
 import { clientIp } from "./http-util.js";
 import { verifyPassword } from "./password.js";
-import { AdminUnauthorizedError, AdminValidationError, hasPermission } from "./permissions.js";
+import { AdminUnauthorizedError, hasPermission } from "./permissions.js";
 import {
   createAdminSession,
   findAdminSession,
@@ -41,62 +42,77 @@ export async function maybeBootstrapStaff(
   if (!config.bootstrapEmail || !config.bootstrapPassword) {
     return false;
   }
-  await createStaff(
+  // Re-check inside createStaff's file lock so a second request cannot
+  // overwrite an existing Super Admin or create a second bootstrap account.
+  const created = await createStaff(
     {
       email: config.bootstrapEmail,
       name: "Bootstrap Super Admin",
       role: "super_admin",
       password: config.bootstrapPassword,
+      bootstrapOnly: true,
     },
     env,
   );
-  return true;
+  return Boolean(created);
+}
+
+function auditLoginFailure(params: { email: string; ip?: string; reason: string }): void {
+  appendAuditEvent({
+    actorId: "anonymous",
+    actorEmail: params.email,
+    role: "unauthenticated",
+    action: "auth.login",
+    targetType: "session",
+    result: "denied",
+    ip: params.ip,
+    metadata: { reason: params.reason },
+  });
 }
 
 export async function loginStaff(params: {
   email: string;
   password: string;
-  totp?: string;
   req: IncomingMessage;
   config: AdminPlatformRuntimeConfig;
   env?: NodeJS.ProcessEnv;
-}): Promise<{ token: string; csrfToken: string; staffId: string }> {
+}): Promise<{ token: string; csrfToken: string; staffId: string; email: string; role: AdminRole }> {
   const env = params.env ?? process.env;
   const ip = clientIp(params.req);
+  const email = params.email.trim().toLowerCase();
   const limit = loginLimiter.check(ip, "admin-login");
   if (!limit.allowed) {
+    auditLoginFailure({ email, ip, reason: "rate_limited" });
     throw new AdminUnauthorizedError("Too many failed login attempts");
   }
-  const email = params.email.trim().toLowerCase();
   const record = getStaffByEmail(email, env);
   if (!record || record.disabled) {
     loginLimiter.recordFailure(ip, "admin-login");
+    auditLoginFailure({ email, ip, reason: "invalid_credentials" });
     throw new AdminUnauthorizedError("Invalid credentials");
   }
   const ok = await verifyPassword(params.password, record.passwordHash);
   if (!ok) {
     loginLimiter.recordFailure(ip, "admin-login");
+    auditLoginFailure({ email, ip, reason: "invalid_credentials" });
     throw new AdminUnauthorizedError("Invalid credentials");
-  }
-  if (record.totpEnabled) {
-    if (!params.totp || !record.totpSecretEnc) {
-      throw new AdminValidationError("Two-factor code required");
-    }
-    // Architecture hook: encrypted TOTP secret is stored, verification is optional.
-    // Reject empty codes when 2FA is enabled so the contract is enforceable.
-    if (params.totp.trim().length < 6) {
-      throw new AdminUnauthorizedError("Invalid two-factor code");
-    }
   }
   loginLimiter.reset(ip, "admin-login");
   await updateStaff(record.id, { lastLoginAt: new Date().toISOString() }, env);
   const created = createAdminSession(
     record.id,
     params.config.sessionTtlSeconds,
+    params.config.sessionSecret,
     { ip, userAgent: getHeader(params.req, "user-agent") },
     env,
   );
-  return { token: created.token, csrfToken: created.session.csrfToken, staffId: record.id };
+  return {
+    token: created.token,
+    csrfToken: created.session.csrfToken,
+    staffId: record.id,
+    email: record.email,
+    role: record.role,
+  };
 }
 
 export function resolveAdminAuth(
@@ -104,7 +120,8 @@ export function resolveAdminAuth(
   env: NodeJS.ProcessEnv = process.env,
 ): AdminAuthContext {
   const token = readSessionToken(req.headers.cookie);
-  const session = findAdminSession(token, env);
+  const secret = resolveAdminPlatformConfig(env).sessionSecret;
+  const session = findAdminSession(token, secret, env);
   if (!session) {
     throw new AdminUnauthorizedError("Unauthorized");
   }
@@ -123,7 +140,6 @@ export function resolveAdminAuth(
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       lastLoginAt: record.lastLoginAt,
-      totpEnabled: Boolean(record.totpEnabled),
     },
     session,
   };
@@ -138,6 +154,10 @@ export function requireCsrf(req: IncomingMessage, ctx: AdminAuthContext): void {
   if (!provided || provided !== ctx.session.csrfToken) {
     throw new AdminUnauthorizedError("CSRF validation failed");
   }
+}
+
+export function resetAdminLoginLimiter(ip = "127.0.0.1"): void {
+  loginLimiter.reset(ip, "admin-login");
 }
 
 export function requirePerm(ctx: AdminAuthContext, permission: AdminPermission): void {

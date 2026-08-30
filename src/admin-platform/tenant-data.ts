@@ -5,7 +5,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig } from "../config/config.js";
-import { loadSessionStore } from "../config/sessions.js";
+import {
+  loadSessionStore,
+  resolveDefaultSessionStorePath,
+  resolveStorePath,
+  updateSessionStore,
+} from "../config/sessions.js";
 import { collectSystemMetrics } from "../infra/system-metrics.js";
 import { extractTenantIdFromSessionKey } from "../routing/session-key.js";
 import {
@@ -129,14 +134,74 @@ export async function buildTenantDetail(tenantId: string) {
   };
 }
 
+function configuredAgentIds(): string[] {
+  const cfg = loadConfig();
+  const ids = (cfg.agents?.list ?? [])
+    .map((agent) => agent.id)
+    .filter((id): id is string => Boolean(id));
+  return ids.length > 0 ? ids : ["main"];
+}
+
+function scanAgentSessionFiles(root: string, into: Set<string>): void {
+  const agentsDir = path.join(root, "agents");
+  if (!fs.existsSync(agentsDir)) {
+    return;
+  }
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(agentsDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const storePath = path.join(agentsDir, entry.name, "sessions", "sessions.json");
+    if (fs.existsSync(storePath)) {
+      into.add(path.resolve(storePath));
+    }
+  }
+}
+
+export function collectSessionStorePaths(): string[] {
+  const found = new Set<string>();
+  const cfg = loadConfig();
+  const storeSetting = typeof cfg.session?.store === "string" ? cfg.session.store : undefined;
+  const addIfExists = (storePath: string) => {
+    if (storePath && fs.existsSync(storePath) && fs.statSync(storePath).isFile()) {
+      found.add(path.resolve(storePath));
+    }
+  };
+
+  for (const agentId of configuredAgentIds()) {
+    addIfExists(resolveStorePath(storeSetting, { agentId }));
+    addIfExists(resolveDefaultSessionStorePath(agentId));
+  }
+
+  scanAgentSessionFiles(resolveTenantStateDir(undefined), found);
+  for (const tenantId of listTenants()) {
+    scanAgentSessionFiles(resolveTenantStateDir(tenantId), found);
+    for (const agentId of configuredAgentIds()) {
+      addIfExists(path.join(resolveTenantSessionsDir(tenantId, agentId), "sessions.json"));
+    }
+  }
+  return [...found];
+}
+
+function agentIdFromStorePath(storePath: string): string | undefined {
+  const match = storePath
+    .replaceAll("\\", "/")
+    .match(/\/agents\/([^/]+)\/sessions\/sessions\.json$/);
+  return match?.[1];
+}
+
 export function listTenantSessions(tenantId?: string): AdminSessionRow[] {
   const rows: AdminSessionRow[] = [];
   const seen = new Set<string>();
-  const addStore = (storePath: string) => {
-    if (!fs.existsSync(storePath)) {
-      return;
-    }
+  for (const storePath of collectSessionStorePaths()) {
     const store = loadSessionStore(storePath);
+    const agentId = agentIdFromStorePath(storePath);
     for (const [key, entry] of Object.entries(store)) {
       if (seen.has(key)) {
         continue;
@@ -149,6 +214,7 @@ export function listTenantSessions(tenantId?: string): AdminSessionRow[] {
       rows.push({
         key,
         tenantId: keyTenant,
+        agentId,
         updatedAt: entry.updatedAt,
         totalTokens: entry.totalTokens,
         inputTokens: entry.inputTokens,
@@ -156,23 +222,24 @@ export function listTenantSessions(tenantId?: string): AdminSessionRow[] {
         chatType: entry.chatType,
       });
     }
-  };
-
-  const cfg = loadConfig();
-  const defaultAgent = cfg.agents?.list?.[0]?.id ?? "main";
-  addStore(
-    path.join(
-      resolveTenantStateDir(undefined),
-      "agents",
-      defaultAgent,
-      "sessions",
-      "sessions.json",
-    ),
-  );
-  for (const id of tenantId ? [tenantId] : listTenants()) {
-    addStore(path.join(resolveTenantSessionsDir(id, defaultAgent), "sessions.json"));
   }
   return rows.toSorted((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+}
+
+export async function terminateTenantSession(key: string): Promise<boolean> {
+  for (const storePath of collectSessionStorePaths()) {
+    let deleted = false;
+    await updateSessionStore(storePath, (store) => {
+      if (store[key]) {
+        delete store[key];
+        deleted = true;
+      }
+    });
+    if (deleted) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function createAdminTenant(tenantId: string, displayName?: string) {

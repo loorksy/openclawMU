@@ -1,9 +1,18 @@
 ---
 title: Admin Deployment
-summary: Domain, reverse proxy, and environment variables
+summary: Domain split, reverse proxy, HTTPS, and environment variables
 ---
 
 # Admin Deployment
+
+Admin is a **separate hostname**, not a `/app/admin` route.
+
+| Host                        | What it serves                                 |
+| --------------------------- | ---------------------------------------------- |
+| `https://app.example.com`   | Gateway, Control UI, `/internal/v1`, WebSocket |
+| `https://admin.example.com` | Admin UI + `/admin/api` only                   |
+
+Any other `Host` does **not** receive Admin API. The gateway process may still serve Control UI and existing APIs on those hosts.
 
 ## Environment variables
 
@@ -37,22 +46,53 @@ Equivalent config:
 }
 ```
 
-## Nginx
+## Forwarded headers
+
+Admin uses `Host` by default.
+
+`X-Forwarded-Host` and `X-Forwarded-Proto` are honored **only** when the peer IP is listed in `gateway.trustedProxies`. Untrusted clients cannot spoof the Admin hostname.
+
+Set `OPENCLAW_ADMIN_COOKIE_SECURE=1` behind HTTPS. If a trusted proxy sends `X-Forwarded-Proto: https`, cookies also get `Secure`.
+
+## Nginx (production)
+
+Terminate TLS at the proxy. Forward the original host. Restrict `trustedProxies` to the proxy IP.
 
 ```nginx
+# app.example.com — existing OpenClawMU / Control UI
+server {
+  listen 443 ssl;
+  server_name app.example.com;
+
+  location / {
+    proxy_pass http://127.0.0.1:18789;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+  }
+}
+
+# admin.example.com — Admin Platform only
 server {
   listen 443 ssl;
   server_name admin.example.com;
+
   location / {
     proxy_pass http://127.0.0.1:18789;
+    proxy_http_version 1.1;
     proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $remote_addr;
-    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
   }
 }
 ```
 
-Traefik and Cloudflare should forward the original `Host` and enable trusted proxies on the gateway.
+Cloudflare or Traefik should keep the public hostname in `Host` (or `X-Forwarded-Host` plus `gateway.trustedProxies` set to the proxy). Do not point the Admin origin at `app.example.com`.
 
 ## Local development
 
@@ -65,3 +105,5 @@ openclaw admin bootstrap --email dev@example.com --password 'local-dev-pass'
 openclaw gateway run
 # open http://127.0.0.1:19800
 ```
+
+The dedicated admin port does not accept WebSocket upgrades. Use the main gateway port for Control UI WebSocket.

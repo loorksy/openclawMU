@@ -36,8 +36,20 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    me = null;
+    csrf = "";
+    throw new Error("Unauthorized");
+  }
+  if (res.status === 403) {
+    throw new Error("You do not have permission for this action");
+  }
+  if (res.status >= 500) {
+    throw new Error("Something went wrong. Try again.");
+  }
   if (!res.ok) {
-    throw new Error(data.error || `HTTP ${res.status}`);
+    const message = typeof data.error === "string" ? data.error : `HTTP ${res.status}`;
+    throw new Error(message);
   }
   return data;
 }
@@ -70,7 +82,12 @@ function shell(inner) {
       <aside class="sidebar">
         <div class="brand">OpenClawMU Admin</div>
         <nav class="nav">
-          ${NAV.map(([id, label, href]) => `<a href="${href}" class="${pathOf() === href || (href !== "/" && pathOf().startsWith(href)) ? "active" : ""}" data-nav="${id}">${label}</a>`).join("")}
+          ${NAV.filter(([id]) => id !== "staff" || can("staff.read"))
+            .map(
+              ([id, label, href]) =>
+                `<a href="${href}" class="${pathOf() === href || (href !== "/" && pathOf().startsWith(href)) ? "active" : ""}" data-nav="${id}">${label}</a>`,
+            )
+            .join("")}
         </nav>
       </aside>
       <section class="main">
@@ -92,9 +109,8 @@ function loginView(error = "") {
       <h1>Admin sign in</h1>
       <p class="label">Independent of tenant tokens.</p>
       ${error ? `<p class="error">${escapeHtml(error)}</p>` : ""}
-      <input id="email" type="email" placeholder="Email" />
-      <input id="password" type="password" placeholder="Password" />
-      <input id="totp" placeholder="2FA code (if enabled)" />
+      <input id="email" type="email" placeholder="Email" autocomplete="username" />
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
       <button class="btn primary" id="signin">Sign in</button>
     </div>
   `;
@@ -103,7 +119,6 @@ function loginView(error = "") {
       const data = await api("POST", "/auth/login", {
         email: document.getElementById("email").value,
         password: document.getElementById("password").value,
-        totp: document.getElementById("totp").value,
       });
       csrf = data.csrfToken;
       await boot();
@@ -347,6 +362,7 @@ async function renderSettings() {
     <div class="card">
       <p>Admin authentication is independent of tenant tokens.</p>
       <p>Configure <code>OPENCLAW_ADMIN_DOMAIN</code>, <code>OPENCLAW_ADMIN_SESSION_SECRET</code>, and cookie flags in the gateway environment.</p>
+      <p class="label">Two-factor authentication is not implemented. Treat staff passwords as the sole factor.</p>
     </div>
   `);
 }

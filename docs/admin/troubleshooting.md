@@ -24,3 +24,11 @@ Call `GET /admin/api/auth/session` and send `X-Admin-CSRF` on POST/PATCH/DELETE.
 ## Tenant token cannot open Admin
 
 Expected. Create a staff account instead.
+
+## Admin UI appears on the app hostname
+
+`Host` (or trusted `X-Forwarded-Host`) must match `OPENCLAW_ADMIN_DOMAIN`. If a proxy overwrites `Host` with the upstream address, set `gateway.trustedProxies` and forward `X-Forwarded-Host`.
+
+## 2FA / TOTP login field
+
+Two-factor authentication is not implemented. Ignore any older notes that mention `totpEnabled`.
