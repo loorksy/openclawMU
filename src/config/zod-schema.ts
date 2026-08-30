@@ -547,6 +547,19 @@ export const OpenClawSchema = z
           .optional(),
         controlPlaneToken: z.string().optional(),
         multiTenant: z.boolean().optional(),
+        adminPlatform: z
+          .object({
+            enabled: z.boolean().optional(),
+            domain: z.string().optional(),
+            port: z.number().int().positive().optional(),
+            sessionSecret: z.string().optional(),
+            sessionTtlSeconds: z.number().int().positive().optional(),
+            cookieSecure: z.boolean().optional(),
+            cookieSameSite: z.enum(["strict", "lax", "none"]).optional(),
+            allowedOrigins: z.array(z.string()).optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),

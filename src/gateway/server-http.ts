@@ -21,6 +21,7 @@ import {
 import { loadConfig } from "../config/config.js";
 import { safeEqualSecret } from "../security/secret-equal.js";
 import { handleSlackHttpRequest } from "../slack/http/index.js";
+import { handleAdminPlatformHttpRequest } from "../admin-platform/http.js";
 import {
   authorizeGatewayConnect,
   isLocalDirectRequest,
@@ -491,6 +492,11 @@ export function createGatewayHttpServer(opts: {
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
       const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
+
+      // OPENCLAWMU ADDITION: isolated Admin Platform (Host/domain gated).
+      if (await handleAdminPlatformHttpRequest(req, res)) {
+        return;
+      }
 
       // Handle internal API requests (control plane integration)
       if (await handleInternalHttpRequest(req, res)) {

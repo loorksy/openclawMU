@@ -322,4 +322,27 @@ export type GatewayConfig = {
    * Enable multi-tenant mode for tenant isolation.
    */
   multiTenant?: boolean;
+  /**
+   * OPENCLAWMU ADDITION: isolated Admin Platform (separate Host/domain).
+   */
+  adminPlatform?: GatewayAdminPlatformConfig;
+};
+
+export type GatewayAdminPlatformConfig = {
+  /** Enable the Admin Platform HTTP surface. */
+  enabled?: boolean;
+  /** Hostname that should receive Admin UI + /admin/api (e.g. admin.example.com). */
+  domain?: string;
+  /** Optional dedicated listen port (in addition to Host-based routing). */
+  port?: number;
+  /** Secret required to enable login (never shipped in frontend). */
+  sessionSecret?: string;
+  /** Admin session TTL in seconds (default 43200). */
+  sessionTtlSeconds?: number;
+  /** Set cookie Secure flag (default true). */
+  cookieSecure?: boolean;
+  /** Cookie SameSite (default strict). */
+  cookieSameSite?: "strict" | "lax" | "none";
+  /** Extra CORS origins allowed with credentials. */
+  allowedOrigins?: string[];
 };

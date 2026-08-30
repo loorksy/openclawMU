@@ -30,6 +30,8 @@ import { attachGatewayUpgradeHandler, createGatewayHttpServer } from "./server-h
 import { createGatewayHooksRequestHandler } from "./server/hooks.js";
 import { listenGatewayHttpServer } from "./server/http-listen.js";
 import { createGatewayPluginRequestHandler } from "./server/plugins-http.js";
+import { createAdminPlatformHttpServer } from "../admin-platform/http.js";
+import { resolveAdminPlatformConfig } from "../admin-platform/config.js";
 
 export async function createGatewayRuntimeState(params: {
   cfg: import("../config/config.js").OpenClawConfig;
@@ -169,6 +171,18 @@ export async function createGatewayRuntimeState(params: {
       resolvedAuth: params.resolvedAuth,
       rateLimiter: params.rateLimiter,
     });
+  }
+
+  const adminConfig = resolveAdminPlatformConfig();
+  if (adminConfig.enabled && adminConfig.port) {
+    const adminServer = createAdminPlatformHttpServer();
+    await listenGatewayHttpServer({
+      httpServer: adminServer,
+      bindHost: params.bindHost,
+      port: adminConfig.port,
+    });
+    httpServers.push(adminServer);
+    params.log.info(`admin platform listening on ${params.bindHost}:${adminConfig.port}`);
   }
 
   const agentRunSeq = new Map<string, number>();
