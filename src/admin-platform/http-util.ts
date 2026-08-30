@@ -3,11 +3,11 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { AdminPlatformRuntimeConfig } from "./config.js";
+import { loadConfig } from "../config/config.js";
 import { sendJson } from "../gateway/http-common.js";
 import { getHeader } from "../gateway/http-utils.js";
 import { resolveGatewayClientIp } from "../gateway/net.js";
-import { loadConfig } from "../config/config.js";
-import type { AdminPlatformRuntimeConfig } from "./config.js";
 import { isAllowedOrigin } from "./config.js";
 
 export function applyAdminSecurityHeaders(
@@ -77,4 +77,8 @@ export async function readAdminJson(
 
 export function queryParams(url: URL): URLSearchParams {
   return url.searchParams;
+}
+
+export function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
 }

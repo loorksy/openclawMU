@@ -1,8 +1,8 @@
 import type { Command } from "commander";
-import { defaultRuntime } from "../runtime.js";
 import { createStaff, listStaff, staffCount } from "../admin-platform/staff-store.js";
-import { theme } from "../terminal/theme.js";
+import { defaultRuntime } from "../runtime.js";
 import { formatDocsLink } from "../terminal/links.js";
+import { theme } from "../terminal/theme.js";
 
 type BootstrapOptions = {
   email?: string;
@@ -17,7 +17,8 @@ export function registerAdminCli(program: Command) {
     .description("Admin Platform (staff bootstrap and listing)")
     .addHelpText(
       "after",
-      () => `\n${theme.muted("Docs:")} ${formatDocsLink("/admin/index", "docs.openclaw.ai/admin")}\n`,
+      () =>
+        `\n${theme.muted("Docs:")} ${formatDocsLink("/admin/index", "docs.openclaw.ai/admin")}\n`,
     );
 
   admin
@@ -57,7 +58,9 @@ export function registerAdminCli(program: Command) {
         return;
       }
       if (staff.length === 0) {
-        defaultRuntime.log("No staff accounts. Run: openclaw admin bootstrap --email … --password …");
+        defaultRuntime.log(
+          "No staff accounts. Run: openclaw admin bootstrap --email … --password …",
+        );
         return;
       }
       for (const row of staff) {

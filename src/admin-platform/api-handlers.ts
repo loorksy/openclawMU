@@ -4,23 +4,24 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import fs from "node:fs";
-import { sendJson } from "../gateway/http-common.js";
+import type { TenantQuotas } from "../tenants/types.js";
+import type { AdminAuthContext, AdminRole } from "./types.js";
 import { loadConfig } from "../config/config.js";
 import { updateSessionStore } from "../config/sessions.js";
+import { sendJson } from "../gateway/http-common.js";
 import { getTenant, isValidTenantId } from "../tenants/index.js";
 import { appendAuditEvent, auditFromContext, readAuditEvents } from "./audit.js";
-import { clientIp, queryParams, readAdminJson, sendAdminError } from "./http-util.js";
+import { requirePerm } from "./auth-service.js";
+import { asString, clientIp, queryParams, readAdminJson, sendAdminError } from "./http-util.js";
 import {
   AdminForbiddenError,
   AdminValidationError,
   canAssignRole,
   canManageStaffRecord,
-  hasPermission,
 } from "./permissions.js";
 import { permissionsForRole } from "./permissions.js";
-import { requirePerm } from "./auth-service.js";
-import { createStaff, getStaffById, listStaff, updateStaff } from "./staff-store.js";
 import { revokeStaffSessions } from "./session-store.js";
+import { createStaff, getStaffById, listStaff, updateStaff } from "./staff-store.js";
 import {
   buildDashboard,
   buildTenantDetail,
@@ -32,15 +33,18 @@ import {
   rotateAdminTenantToken,
   updateAdminTenant,
 } from "./tenant-data.js";
-import type { AdminAuthContext, AdminRole } from "./types.js";
 import { isAdminRole } from "./types.js";
-import type { TenantQuotas } from "../tenants/types.js";
 
 function audit(
   ctx: AdminAuthContext,
   req: IncomingMessage,
   action: string,
-  extra: { targetType: string; targetId?: string; result: "ok" | "error" | "denied"; metadata?: Record<string, string | number | boolean | null> },
+  extra: {
+    targetType: string;
+    targetId?: string;
+    result: "ok" | "error" | "denied";
+    metadata?: Record<string, string | number | boolean | null>;
+  },
 ) {
   auditFromContext(ctx, action, { ...extra, ip: clientIp(req) });
 }
@@ -83,9 +87,13 @@ export async function handleAuthorizedApi(params: {
     if (!body) {
       return;
     }
-    const tenantId = String(body.tenantId ?? "");
-    const created = await createAdminTenant(tenantId, typeof body.displayName === "string" ? body.displayName : undefined);
-    audit(ctx, req, "tenants.create", { targetType: "tenant", targetId: created.tenantId, result: "ok" });
+    const tenantId = asString(body.tenantId);
+    const created = await createAdminTenant(tenantId, asString(body.displayName) || undefined);
+    audit(ctx, req, "tenants.create", {
+      targetType: "tenant",
+      targetId: created.tenantId,
+      result: "ok",
+    });
     sendJson(res, 201, {
       tenantId: created.tenantId,
       createdAt: created.createdAt,
@@ -123,7 +131,10 @@ export async function handleAuthorizedApi(params: {
       const updated = updateAdminTenant(tenantId, {
         displayName: typeof body.displayName === "string" ? body.displayName : undefined,
         disabled: typeof body.disabled === "boolean" ? body.disabled : undefined,
-        quotas: body.quotas && typeof body.quotas === "object" ? (body.quotas as TenantQuotas) : undefined,
+        quotas:
+          body.quotas && typeof body.quotas === "object"
+            ? (body.quotas as TenantQuotas)
+            : undefined,
       });
       audit(ctx, req, "tenants.update", {
         targetType: "tenant",
@@ -192,9 +203,7 @@ export async function handleAuthorizedApi(params: {
     }
     const cfg = loadConfig();
     const storePath =
-      cfg.session?.store && typeof cfg.session.store === "string"
-        ? cfg.session.store
-        : undefined;
+      cfg.session?.store && typeof cfg.session.store === "string" ? cfg.session.store : undefined;
     if (!storePath) {
       sendAdminError(res, 404, "Session store not found");
       return;
@@ -284,7 +293,7 @@ export async function handleAuthorizedApi(params: {
     if (!body) {
       return;
     }
-    const role = String(body.role ?? "");
+    const role = asString(body.role);
     if (!isAdminRole(role) || !canAssignRole(ctx.staff, role)) {
       throw new AdminForbiddenError("Cannot assign this role");
     }
@@ -294,12 +303,17 @@ export async function handleAuthorizedApi(params: {
       requirePerm(ctx, "moderators.manage");
     }
     const created = await createStaff({
-      email: String(body.email ?? ""),
-      name: String(body.name ?? ""),
+      email: asString(body.email),
+      name: asString(body.name),
       role,
-      password: String(body.password ?? ""),
+      password: asString(body.password),
     });
-    audit(ctx, req, "staff.create", { targetType: "staff", targetId: created.id, result: "ok", metadata: { role } });
+    audit(ctx, req, "staff.create", {
+      targetType: "staff",
+      targetId: created.id,
+      result: "ok",
+      metadata: { role },
+    });
     sendJson(res, 201, { staff: created });
     return;
   }

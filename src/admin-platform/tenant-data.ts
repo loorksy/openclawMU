@@ -4,8 +4,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { loadSessionStore } from "../config/sessions.js";
 import { loadConfig } from "../config/config.js";
+import { loadSessionStore } from "../config/sessions.js";
+import { collectSystemMetrics } from "../infra/system-metrics.js";
 import { extractTenantIdFromSessionKey } from "../routing/session-key.js";
 import {
   createTenant,
@@ -23,7 +24,6 @@ import {
   updateTenant,
   type TenantQuotas,
 } from "../tenants/index.js";
-import { collectSystemMetrics } from "../infra/system-metrics.js";
 import { AdminNotFoundError, AdminValidationError } from "./permissions.js";
 
 export type AdminSessionRow = {
@@ -160,7 +160,15 @@ export function listTenantSessions(tenantId?: string): AdminSessionRow[] {
 
   const cfg = loadConfig();
   const defaultAgent = cfg.agents?.list?.[0]?.id ?? "main";
-  addStore(path.join(resolveTenantStateDir(undefined), "agents", defaultAgent, "sessions", "sessions.json"));
+  addStore(
+    path.join(
+      resolveTenantStateDir(undefined),
+      "agents",
+      defaultAgent,
+      "sessions",
+      "sessions.json",
+    ),
+  );
   for (const id of tenantId ? [tenantId] : listTenants()) {
     addStore(path.join(resolveTenantSessionsDir(id, defaultAgent), "sessions.json"));
   }
@@ -208,7 +216,8 @@ export async function buildDashboard() {
       activeTenants: active,
       suspendedTenants: suspended,
       activeUsers: active,
-      activeSessions: sessions.filter((row) => (row.updatedAt ?? 0) > Date.now() - 3_600_000).length,
+      activeSessions: sessions.filter((row) => (row.updatedAt ?? 0) > Date.now() - 3_600_000)
+        .length,
       requests,
       tokenUsage,
       estimatedCostCents: costCents,

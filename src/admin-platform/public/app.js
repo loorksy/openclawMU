@@ -43,7 +43,8 @@ async function api(method, path, body) {
 }
 
 function badge(status) {
-  const cls = status === "active" || status === "ok" ? "ok" : status === "suspended" ? "danger" : "idle";
+  const cls =
+    status === "active" || status === "ok" ? "ok" : status === "suspended" ? "danger" : "idle";
   return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
 }
 
@@ -150,7 +151,9 @@ function tenantTable(rows) {
   if (!rows.length) {
     return `<div class="empty">No tenants yet.</div>`;
   }
-  const filtered = rows.filter((row) => JSON.stringify(row).toLowerCase().includes(query.toLowerCase()));
+  const filtered = rows.filter((row) =>
+    JSON.stringify(row).toLowerCase().includes(query.toLowerCase()),
+  );
   return `<div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Tokens</th><th>Cost ¢</th><th>Updated</th><th></th></tr></thead>
     <tbody>
@@ -223,7 +226,9 @@ async function renderTenant(id) {
   `);
   document.getElementById("suspend")?.addEventListener("click", async () => {
     if (!confirmAction("Change tenant status?")) return;
-    await api("PATCH", `/tenants/${encodeURIComponent(id)}`, { disabled: tenant.status === "active" });
+    await api("PATCH", `/tenants/${encodeURIComponent(id)}`, {
+      disabled: tenant.status === "active",
+    });
     await renderTenant(id);
   });
   document.getElementById("rotate")?.addEventListener("click", async () => {
@@ -248,7 +253,9 @@ function tenantTableFromSessions(rows) {
 
 async function renderUsers() {
   const { users, note } = await api("GET", "/users");
-  app.innerHTML = shell(`<p class="label">${escapeHtml(note)}</p>${tenantTable(users.map((u) => ({ tenantId: u.id, displayName: u.name, status: u.status, usage: {}, lastActivity: u.lastLoginAt })))}`);
+  app.innerHTML = shell(
+    `<p class="label">${escapeHtml(note)}</p>${tenantTable(users.map((u) => ({ tenantId: u.id, displayName: u.name, status: u.status, usage: {}, lastActivity: u.lastLoginAt })))}`,
+  );
 }
 
 async function renderSessions() {
@@ -292,7 +299,8 @@ async function renderLogs() {
       <div class="table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th></tr></thead>
       <tbody>${(audit.events ?? [])
         .map(
-          (e) => `<tr><td>${escapeHtml(e.ts)}</td><td>${escapeHtml(e.actorEmail)}</td><td>${escapeHtml(e.action)}</td><td>${escapeHtml(e.targetId ?? e.targetType)}</td><td>${escapeHtml(e.result)}</td></tr>`,
+          (e) =>
+            `<tr><td>${escapeHtml(e.ts)}</td><td>${escapeHtml(e.actorEmail)}</td><td>${escapeHtml(e.action)}</td><td>${escapeHtml(e.targetId ?? e.targetType)}</td><td>${escapeHtml(e.result)}</td></tr>`,
         )
         .join("")}</tbody></table></div>
     </div>
@@ -301,7 +309,9 @@ async function renderLogs() {
 
 async function renderSystem() {
   const { dashboard } = await api("GET", "/system");
-  app.innerHTML = shell(`<h2>System health</h2><pre>${escapeHtml(JSON.stringify(dashboard.system, null, 2))}</pre>`);
+  app.innerHTML = shell(
+    `<h2>System health</h2><pre>${escapeHtml(JSON.stringify(dashboard.system, null, 2))}</pre>`,
+  );
 }
 
 async function renderStaff() {
@@ -346,7 +356,8 @@ async function route() {
     const path = pathOf();
     if (path === "/" || path === "/dashboard") await renderDashboard();
     else if (path === "/tenants") await renderTenants();
-    else if (path.startsWith("/tenants/")) await renderTenant(decodeURIComponent(path.slice("/tenants/".length).split("?")[0]));
+    else if (path.startsWith("/tenants/"))
+      await renderTenant(decodeURIComponent(path.slice("/tenants/".length).split("?")[0]));
     else if (path === "/users") await renderUsers();
     else if (path === "/sessions") await renderSessions();
     else if (path === "/usage") await renderUsage();
@@ -380,7 +391,9 @@ function bindChrome() {
   document.querySelectorAll("[data-act=toggle]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirmAction("Change tenant status?")) return;
-      await api("PATCH", `/tenants/${btn.dataset.id}`, { disabled: btn.dataset.disabled === "true" });
+      await api("PATCH", `/tenants/${btn.dataset.id}`, {
+        disabled: btn.dataset.disabled === "true",
+      });
       await route();
     });
   });

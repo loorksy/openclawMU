@@ -22,12 +22,12 @@ Internet
 
 ## Persistence
 
-| Data | Path |
-| --- | --- |
-| Staff | `~/.openclaw/admin/staff.json` (mode `0600`) |
+| Data           | Path                                              |
+| -------------- | ------------------------------------------------- |
+| Staff          | `~/.openclaw/admin/staff.json` (mode `0600`)      |
 | Admin sessions | `~/.openclaw/admin/sessions.json` (hashed tokens) |
-| Audit log | `~/.openclaw/admin/audit.jsonl` (append-only) |
-| Tenants | existing `~/.openclaw/tenants.json` |
+| Audit log      | `~/.openclaw/admin/audit.jsonl` (append-only)     |
+| Tenants        | existing `~/.openclaw/tenants.json`               |
 
 No SQL database is introduced. This matches the OpenClawMU deployment model.
 

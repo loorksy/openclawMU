@@ -11,6 +11,7 @@ import type { CanvasHostHandler } from "../canvas-host/server.js";
 import type { createSubsystemLogger } from "../logging/subsystem.js";
 import type { AuthRateLimiter } from "./auth-rate-limit.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
+import { handleAdminPlatformHttpRequest } from "../admin-platform/http.js";
 import { resolveAgentAvatar } from "../agents/identity-avatar.js";
 import {
   A2UI_PATH,
@@ -21,7 +22,6 @@ import {
 import { loadConfig } from "../config/config.js";
 import { safeEqualSecret } from "../security/secret-equal.js";
 import { handleSlackHttpRequest } from "../slack/http/index.js";
-import { handleAdminPlatformHttpRequest } from "../admin-platform/http.js";
 import {
   authorizeGatewayConnect,
   isLocalDirectRequest,

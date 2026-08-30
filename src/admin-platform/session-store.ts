@@ -2,11 +2,11 @@
  * OPENCLAWMU ADDITION: hashed admin sessions + CSRF tokens.
  */
 
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { resolveAdminSessionsPath } from "./paths.js";
 import type { AdminSessionRecord, AdminSessionStoreFile } from "./types.js";
+import { resolveAdminSessionsPath } from "./paths.js";
 
 const COOKIE_NAME = "openclaw_admin_session";
 
@@ -150,7 +150,12 @@ export function readSessionToken(cookieHeader: string | undefined): string | und
 
 export function buildSessionCookie(
   token: string,
-  opts: { ttlSeconds: number; secure: boolean; sameSite: "strict" | "lax" | "none"; clear?: boolean },
+  opts: {
+    ttlSeconds: number;
+    secure: boolean;
+    sameSite: "strict" | "lax" | "none";
+    clear?: boolean;
+  },
 ): string {
   const parts = [
     `${COOKIE_NAME}=${opts.clear ? "" : encodeURIComponent(token)}`,

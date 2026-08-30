@@ -7,17 +7,17 @@ summary: Domain, reverse proxy, and environment variables
 
 ## Environment variables
 
-| Variable | Purpose |
-| --- | --- |
-| `OPENCLAW_ADMIN_DOMAIN` | Hostname that receives Admin UI + API |
-| `OPENCLAW_ADMIN_PORT` | Optional dedicated listen port |
-| `OPENCLAW_ADMIN_SESSION_SECRET` | Required to enable login |
-| `OPENCLAW_ADMIN_SESSION_TTL` | Session TTL seconds (default `43200`) |
-| `OPENCLAW_ADMIN_COOKIE_SECURE` | `1` in production HTTPS |
-| `OPENCLAW_ADMIN_COOKIE_SAME_SITE` | `strict` (default), `lax`, or `none` |
-| `OPENCLAW_ADMIN_ALLOWED_ORIGINS` | Extra CORS origins (comma-separated) |
-| `OPENCLAW_ADMIN_BOOTSTRAP_EMAIL` | First-run Super Admin email |
-| `OPENCLAW_ADMIN_BOOTSTRAP_PASSWORD` | First-run Super Admin password |
+| Variable                            | Purpose                               |
+| ----------------------------------- | ------------------------------------- |
+| `OPENCLAW_ADMIN_DOMAIN`             | Hostname that receives Admin UI + API |
+| `OPENCLAW_ADMIN_PORT`               | Optional dedicated listen port        |
+| `OPENCLAW_ADMIN_SESSION_SECRET`     | Required to enable login              |
+| `OPENCLAW_ADMIN_SESSION_TTL`        | Session TTL seconds (default `43200`) |
+| `OPENCLAW_ADMIN_COOKIE_SECURE`      | `1` in production HTTPS               |
+| `OPENCLAW_ADMIN_COOKIE_SAME_SITE`   | `strict` (default), `lax`, or `none`  |
+| `OPENCLAW_ADMIN_ALLOWED_ORIGINS`    | Extra CORS origins (comma-separated)  |
+| `OPENCLAW_ADMIN_BOOTSTRAP_EMAIL`    | First-run Super Admin email           |
+| `OPENCLAW_ADMIN_BOOTSTRAP_PASSWORD` | First-run Super Admin password        |
 
 Equivalent config:
 

@@ -2,10 +2,10 @@
  * OPENCLAWMU ADDITION: static Admin UI (separate from Control UI).
  */
 
+import type { IncomingMessage, ServerResponse } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { IncomingMessage, ServerResponse } from "node:http";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_CANDIDATES = [
@@ -51,6 +51,9 @@ export function serveAdminUi(req: IncomingMessage, res: ServerResponse): void {
   res.setHeader("Content-Type", MIME[ext] ?? "application/octet-stream");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'",
+  );
   res.end(fs.readFileSync(filePath));
 }

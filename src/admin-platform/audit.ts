@@ -2,11 +2,11 @@
  * OPENCLAWMU ADDITION: append-only admin audit log.
  */
 
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { resolveAdminAuditPath } from "./paths.js";
 import type { AdminAuditEvent, AdminAuthContext } from "./types.js";
+import { resolveAdminAuditPath } from "./paths.js";
 
 const SENSITIVE_KEY = /(password|secret|token|authorization|cookie|api[_-]?key)/i;
 

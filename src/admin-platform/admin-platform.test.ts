@@ -1,14 +1,14 @@
-import { createServer } from "node:http";
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { handleAdminPlatformHttpRequest } from "./http.js";
-import { createStaff, staffCount } from "./staff-store.js";
-import { hasPermission, canAssignRole, canManageStaffRecord } from "./permissions.js";
-import { hashPassword, verifyPassword } from "./password.js";
-import { createTenant } from "../tenants/index.js";
 import { clearConfigCache } from "../config/config.js";
+import { createTenant } from "../tenants/index.js";
+import { handleAdminPlatformHttpRequest } from "./http.js";
+import { hashPassword, verifyPassword } from "./password.js";
+import { hasPermission, canAssignRole, canManageStaffRecord } from "./permissions.js";
+import { createStaff, staffCount } from "./staff-store.js";
 
 const DOMAIN = "admin.test.local";
 
@@ -240,9 +240,9 @@ describe("admin platform", () => {
 
       const listed = await request(port, "GET", "/admin/api/tenants", { cookie, csrf });
       expect(listed.status).toBe(200);
-      expect((listed.data.tenants as { tenantId: string }[]).some((row) => row.tenantId === "acme")).toBe(
-        true,
-      );
+      expect(
+        (listed.data.tenants as { tenantId: string }[]).some((row) => row.tenantId === "acme"),
+      ).toBe(true);
     } finally {
       server.close();
     }
@@ -372,12 +372,14 @@ describe("admin platform", () => {
 
   it("does not serve admin API on a non-admin host when not dedicated", async () => {
     const server = createServer((req, res) => {
-      void handleAdminPlatformHttpRequest(req, res, { dedicatedListener: false }).then((handled) => {
-        if (!handled) {
-          res.statusCode = 204;
-          res.end();
-        }
-      });
+      void handleAdminPlatformHttpRequest(req, res, { dedicatedListener: false }).then(
+        (handled) => {
+          if (!handled) {
+            res.statusCode = 204;
+            res.end();
+          }
+        },
+      );
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
@@ -385,7 +387,9 @@ describe("admin platform", () => {
       throw new Error("no port");
     }
     try {
-      const res = await request(address.port, "GET", "/admin/api/health", { host: "app.test.local" });
+      const res = await request(address.port, "GET", "/admin/api/health", {
+        host: "app.test.local",
+      });
       expect(res.status).toBe(204);
     } finally {
       server.close();

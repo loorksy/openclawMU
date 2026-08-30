@@ -56,7 +56,8 @@ export function resolveAdminPlatformConfig(
   const cfg = loadConfig();
   const file = cfg.gateway?.adminPlatform;
   const domain = readEnv(env, "OPENCLAW_ADMIN_DOMAIN") ?? file?.domain ?? null;
-  const portRaw = readEnv(env, "OPENCLAW_ADMIN_PORT") ?? (file?.port != null ? String(file.port) : undefined);
+  const portRaw =
+    readEnv(env, "OPENCLAW_ADMIN_PORT") ?? (file?.port != null ? String(file.port) : undefined);
   const port = portRaw ? Number(portRaw) : null;
   const sessionSecret =
     readEnv(env, "OPENCLAW_ADMIN_SESSION_SECRET") ?? file?.sessionSecret ?? null;
@@ -78,15 +79,15 @@ export function resolveAdminPlatformConfig(
     domain ? `http://${domain}` : "",
   ]);
   const enabled =
-    file?.enabled ??
-    Boolean(sessionSecret || domain || (port && Number.isFinite(port)));
+    file?.enabled ?? Boolean(sessionSecret || domain || (port && Number.isFinite(port)));
 
   return {
     enabled,
     domain: domain?.toLowerCase() ?? null,
     port: port && Number.isFinite(port) ? port : null,
     sessionSecret,
-    sessionTtlSeconds: Number.isFinite(sessionTtlSeconds) && sessionTtlSeconds > 60 ? sessionTtlSeconds : 43_200,
+    sessionTtlSeconds:
+      Number.isFinite(sessionTtlSeconds) && sessionTtlSeconds > 60 ? sessionTtlSeconds : 43_200,
     cookieSecure,
     cookieSameSite,
     allowedOrigins,
@@ -124,7 +125,10 @@ export function isAdminHostRequest(
   return normalizeHost(hostHeader) === config.domain;
 }
 
-export function isAllowedOrigin(origin: string | undefined, config: AdminPlatformRuntimeConfig): boolean {
+export function isAllowedOrigin(
+  origin: string | undefined,
+  config: AdminPlatformRuntimeConfig,
+): boolean {
   if (!origin) {
     return false;
   }

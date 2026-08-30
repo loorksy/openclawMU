@@ -2,17 +2,27 @@
  * OPENCLAWMU ADDITION: Admin Platform HTTP entry (Host/domain isolated).
  */
 
-import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { sendJson } from "../gateway/http-common.js";
 import { getHeader } from "../gateway/http-utils.js";
-import { isAdminHostRequest, resolveAdminPlatformConfig } from "./config.js";
 import { handleAuthorizedApi } from "./api-handlers.js";
-import { loginStaff, maybeBootstrapStaff, requireCsrf, resolveAdminAuth } from "./auth-service.js";
-import { applyAdminSecurityHeaders, clientIp, readAdminJson, sendAdminError } from "./http-util.js";
 import { appendAuditEvent } from "./audit.js";
+import { loginStaff, maybeBootstrapStaff, requireCsrf, resolveAdminAuth } from "./auth-service.js";
+import { isAdminHostRequest, resolveAdminPlatformConfig } from "./config.js";
+import {
+  applyAdminSecurityHeaders,
+  asString,
+  clientIp,
+  readAdminJson,
+  sendAdminError,
+} from "./http-util.js";
+import { serveAdminUi } from "./serve-ui.js";
 import { revokeAdminSession } from "./session-store.js";
 import { buildSessionCookie } from "./session-store.js";
-import { serveAdminUi } from "./serve-ui.js";
 
 export type AdminHttpOptions = {
   dedicatedListener?: boolean;
@@ -20,7 +30,10 @@ export type AdminHttpOptions = {
 };
 
 function writeError(res: ServerResponse, err: unknown): void {
-  const status = typeof (err as { status?: number }).status === "number" ? (err as { status: number }).status : 500;
+  const status =
+    typeof (err as { status?: number }).status === "number"
+      ? (err as { status: number }).status
+      : 500;
   const message = err instanceof Error ? err.message : "Internal error";
   sendJson(res, status, { error: message });
 }
@@ -67,9 +80,9 @@ export async function handleAdminPlatformHttpRequest(
           return true;
         }
         const result = await loginStaff({
-          email: String(body.email ?? ""),
-          password: String(body.password ?? ""),
-          totp: typeof body.totp === "string" ? body.totp : undefined,
+          email: asString(body.email),
+          password: asString(body.password),
+          totp: asString(body.totp) || undefined,
           req,
           config,
           env,
@@ -84,7 +97,7 @@ export async function handleAdminPlatformHttpRequest(
         );
         appendAuditEvent({
           actorId: result.staffId,
-          actorEmail: String(body.email ?? "").toLowerCase(),
+          actorEmail: asString(body.email).toLowerCase(),
           role: "admin",
           action: "auth.login",
           targetType: "session",
@@ -140,11 +153,13 @@ export async function handleAdminPlatformHttpRequest(
 
 export function createAdminPlatformHttpServer(env: NodeJS.ProcessEnv = process.env) {
   return createHttpServer((req, res) => {
-    void handleAdminPlatformHttpRequest(req, res, { dedicatedListener: true, env }).then((handled) => {
-      if (!handled) {
-        res.statusCode = 404;
-        res.end("Not Found");
-      }
-    });
+    void handleAdminPlatformHttpRequest(req, res, { dedicatedListener: true, env }).then(
+      (handled) => {
+        if (!handled) {
+          res.statusCode = 404;
+          res.end("Not Found");
+        }
+      },
+    );
   });
 }

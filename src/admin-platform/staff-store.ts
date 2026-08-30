@@ -2,11 +2,12 @@
  * OPENCLAWMU ADDITION: file-backed staff store ({stateDir}/admin/staff.json).
  */
 
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { resolveAdminStaffPath } from "./paths.js";
 import { hashPassword } from "./password.js";
+import { resolveAdminStaffPath } from "./paths.js";
+import { AdminConflictError, AdminNotFoundError, AdminValidationError } from "./permissions.js";
 import {
   isAdminRole,
   toPublicStaff,
@@ -15,7 +16,6 @@ import {
   type AdminStaffRecord,
   type AdminStaffStoreFile,
 } from "./types.js";
-import { AdminConflictError, AdminNotFoundError, AdminValidationError } from "./permissions.js";
 
 const EMPTY_STORE: AdminStaffStoreFile = { version: 1, staff: {} };
 
@@ -79,7 +79,9 @@ export function getStaffByEmail(
   env: NodeJS.ProcessEnv = process.env,
 ): AdminStaffRecord | null {
   const normalized = normalizeEmail(email);
-  return Object.values(loadStaffStore(env).staff).find((entry) => entry.email === normalized) ?? null;
+  return (
+    Object.values(loadStaffStore(env).staff).find((entry) => entry.email === normalized) ?? null
+  );
 }
 
 export async function createStaff(

@@ -76,7 +76,9 @@ export function canManageStaffRecord(actor: AdminStaffPublic, target: AdminStaff
   if (target.role === "admin") {
     return hasPermission(actor.role, "admins.manage");
   }
-  return hasPermission(actor.role, "moderators.manage") || hasPermission(actor.role, "admins.manage");
+  return (
+    hasPermission(actor.role, "moderators.manage") || hasPermission(actor.role, "admins.manage")
+  );
 }
 
 export function assertPermission(role: AdminRole, permission: AdminPermission): void {
