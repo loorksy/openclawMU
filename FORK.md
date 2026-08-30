@@ -22,6 +22,7 @@ When resolving conflicts during rebase, search for this string first.
 - `src/gateway/server-methods/terminal.ts` (tenant PTY methods)
 - `src/gateway/server-methods/admin-resources.ts` (tenant usage + admin resource methods)
 - `src/gateway/internal-http.ts` (control-plane HTTP endpoints)
+- `src/admin-platform/` (isolated Admin/Moderator console, Host-gated)
 - `src/agents/sandbox/bwrap.ts`
 - `src/agents/sandbox/bwrap-pty.ts`
 - `src/agents/sandbox/backend.ts`
@@ -41,7 +42,8 @@ Gateway/auth and routing:
 - `src/gateway/server-methods/types.ts` (tenantId on gateway client)
 - `src/gateway/server-methods.ts` (tenant/terminal handler registration + centralized auth)
 - `src/gateway/server-methods-list.ts` (tenant/terminal methods and events advertised)
-- `src/gateway/server-http.ts` (canvas auth excludes tenant tokens / tenant ws fallback)
+- `src/gateway/server-http.ts` (canvas auth excludes tenant tokens / tenant ws fallback; Admin Host routing)
+- `src/gateway/server-runtime-state.ts` (optional dedicated Admin listen port)
 - `src/gateway/http-utils.ts` (tenant session-key scoping helper)
 - `src/gateway/openai-http.ts` (tenant-scoped session keys for HTTP chat completions)
 - `src/gateway/openresponses-http.ts` (tenant-scoped session keys for HTTP responses)

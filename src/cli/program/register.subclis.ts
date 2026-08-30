@@ -41,6 +41,14 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "admin",
+    description: "Admin Platform",
+    register: async (program) => {
+      const mod = await import("../admin-cli.js");
+      mod.registerAdminCli(program);
+    },
+  },
+  {
     name: "gateway",
     description: "Gateway control",
     register: async (program) => {

@@ -11,6 +11,7 @@ import type { CanvasHostHandler } from "../canvas-host/server.js";
 import type { createSubsystemLogger } from "../logging/subsystem.js";
 import type { AuthRateLimiter } from "./auth-rate-limit.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
+import { handleAdminPlatformHttpRequest } from "../admin-platform/http.js";
 import { resolveAgentAvatar } from "../agents/identity-avatar.js";
 import {
   A2UI_PATH,
@@ -491,6 +492,11 @@ export function createGatewayHttpServer(opts: {
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
       const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
+
+      // OPENCLAWMU ADDITION: isolated Admin Platform (Host/domain gated).
+      if (await handleAdminPlatformHttpRequest(req, res)) {
+        return;
+      }
 
       // Handle internal API requests (control plane integration)
       if (await handleInternalHttpRequest(req, res)) {

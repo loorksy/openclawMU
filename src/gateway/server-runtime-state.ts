@@ -12,6 +12,8 @@ import type { HooksConfigResolved } from "./hooks.js";
 import type { DedupeEntry } from "./server-shared.js";
 import type { GatewayTlsRuntime } from "./server/tls.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
+import { resolveAdminPlatformConfig } from "../admin-platform/config.js";
+import { createAdminPlatformHttpServer } from "../admin-platform/http.js";
 import { CANVAS_HOST_PATH } from "../canvas-host/a2ui.js";
 import { type CanvasHostHandler, createCanvasHostHandler } from "../canvas-host/server.js";
 import { resolveGatewayListenHosts } from "./net.js";
@@ -169,6 +171,18 @@ export async function createGatewayRuntimeState(params: {
       resolvedAuth: params.resolvedAuth,
       rateLimiter: params.rateLimiter,
     });
+  }
+
+  const adminConfig = resolveAdminPlatformConfig();
+  if (adminConfig.enabled && adminConfig.port) {
+    const adminServer = createAdminPlatformHttpServer();
+    await listenGatewayHttpServer({
+      httpServer: adminServer,
+      bindHost: params.bindHost,
+      port: adminConfig.port,
+    });
+    httpServers.push(adminServer);
+    params.log.info(`admin platform listening on ${params.bindHost}:${adminConfig.port}`);
   }
 
   const agentRunSeq = new Map<string, number>();

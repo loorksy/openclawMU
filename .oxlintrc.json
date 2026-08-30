@@ -29,6 +29,7 @@
     "patches/",
     "pnpm-lock.yaml/",
     "skills/",
+    "src/admin-platform/public/",
     "src/canvas-host/a2ui/a2ui.bundle.js",
     "Swabble/",
     "vendor/"

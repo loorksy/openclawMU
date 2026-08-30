@@ -252,3 +252,9 @@
   - changed-files:
       - any-glob-to-any-file:
           - "extensions/talk-voice/**"
+"admin-platform":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/admin-platform/**"
+          - "docs/admin/**"
+          - "src/cli/admin-cli.ts"

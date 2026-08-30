@@ -380,3 +380,4 @@ Set `gateway.controlPlaneToken` in config and pass via `X-Control-Plane-Token` h
 - [Feature comparison](feature-comparison.md) — single-operator vs multi-tenant.
 - [Tenant operations](tenant-operations.md) — CLI reference.
 - [Gateway security](../gateway/security.md).
+- Admin Platform (Host-gated console): [docs/admin](https://docs.openclaw.ai/admin).
